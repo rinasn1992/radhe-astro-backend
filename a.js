@@ -1,5 +1,16 @@
-const https = require('https');
+const express = require('express');
+const cors = require('cors');
 
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Root Route
+app.get('/', (req, res) => {
+    res.send('Radhe Astro Backend API is running successfully!');
+});
+
+// Navamsha API Route
 app.post('/api/navamsha', async (req, res) => {
     try {
         const { name, dob, tob, pob } = req.body;
@@ -13,7 +24,7 @@ app.post('/api/navamsha', async (req, res) => {
         const hour = parseInt(tobParts[0], 10);
         const min = parseInt(tobParts[1], 10);
 
-        const postData = JSON.stringify({
+        const apiPayload = {
             day: day,
             month: month,
             year: year,
@@ -22,39 +33,18 @@ app.post('/api/navamsha', async (req, res) => {
             lat: 25.2138,
             lon: 84.9814,
             tzone: 5.5
-        });
+        };
 
-        const options = {
-            hostname: 'api.vedicastrologyapi.com',
-            port: 443,
-            path: '/v3-json/horoscope/navamsha-chart',
+        const apiResponse = await fetch('https://api.vedicastrologyapi.com/v3-json/horoscope/navamsha-chart', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer vda_live_cc1b52dc_ie316Y9F6iGcJH-dUFheqdxGw65LLl8RbsCCnUt4EDU', // 👈 Yahan apni asli key daalni hai
-                'Content-Length': Buffer.byteLength(postData)
-            }
-        };
-
-        const apiPromise = new Promise((resolve, reject) => {
-            const apiReq = https.request(options, (apiRes) => {
-                let data = '';
-                apiRes.on('data', (chunk) => { data += chunk; });
-                apiRes.on('end', () => {
-                    try {
-                        resolve(JSON.parse(data));
-                    } catch (e) {
-                        reject(new Error("Invalid JSON from Astrology API: " + data));
-                    }
-                });
-            });
-
-            apiReq.on('error', (e) => { reject(e); });
-            apiReq.write(postData);
-            apiReq.end();
+                'Authorization': 'Bearer vda_live_cc1b52dc_ie316Y9F6iGcJH-dUFheqdxGw65LLl8RbsCCnUt4EDU' // 👈 Yahan apni asli vda_live key daalna na bhulein
+            },
+            body: JSON.stringify(apiPayload)
         });
 
-        const result = await apiPromise;
+        const result = await apiResponse.json();
 
         res.json({
             success: true,
@@ -66,4 +56,10 @@ app.post('/api/navamsha', async (req, res) => {
         console.error("API Error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
+});
+
+// Port listener
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Radhe Astro Server is running on port ${PORT}`);
 });
