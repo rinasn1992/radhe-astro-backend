@@ -1,8 +1,3 @@
-// Test route yeh check karne ke liye ki server live hai ya nahi
-app.get('/api/test', (req, res) => {
-    res.json({ success: true, message: "Server is working perfectly!" });
-});
-
 const express = require('express');
 const cors = require('cors');
 const moment = require('moment');
@@ -11,11 +6,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Aapka Kundali aur Astro logic yahan hai
+// Root Route
 app.get('/', (req, res) => {
-  res.send('Radhe Astro Backend API is running successfully!');
+    res.send('Radhe Astro Backend API is running successfully!');
 });
-// Navamsha API Route (Debug Mode)
+
+// Test Route
+app.get('/api/test', (req, res) => {
+    res.json({ success: true, message: "Server is working perfectly!" });
+});
+
+// Navamsha API Route
 app.post('/api/navamsha', async (req, res) => {
     try {
         const { name, dob, tob, pob } = req.body;
@@ -44,20 +45,12 @@ app.post('/api/navamsha', async (req, res) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer vda_live_cc1b52dc_ie316Y9F6iGcJH-dUFheqdxGw65LLl8RbsCCnUt4EDU' // 👈 Yahan apni asli key daalna na bhulein
+                'Authorization': 'Bearer vda_live_cc1b52dc_ie316Y9F6iGcJH-dUFheqdxGw65LLl8RbsCCnUt4EDU' // 👈 Yahan apni asli vda_live key rakhni hai
             },
             body: JSON.stringify(apiPayload)
         });
 
         const result = await apiResponse.json();
-
-        // Agar API error return kare toh use bhi pakdo
-        if (!apiResponse.ok) {
-            return res.status(500).json({ 
-                success: false, 
-                message: "Third-party API Error: " + JSON.stringify(result) 
-            });
-        }
 
         res.json({
             success: true,
@@ -66,14 +59,13 @@ app.post('/api/navamsha', async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Server Crash Error:", error);
-        res.status(500).json({ success: false, message: "Server Error: " + error.message });
+        console.error("API Error:", error);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
-
-// Port listener zaroori hai Render ke liye
+// Port listener
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Radhe Astro Server is running on port ${PORT}`);
+    console.log(`Radhe Astro Server is running on port ${PORT}`);
 });
