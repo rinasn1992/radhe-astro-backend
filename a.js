@@ -1,3 +1,8 @@
+// Test route yeh check karne ke liye ki server live hai ya nahi
+app.get('/api/test', (req, res) => {
+    res.json({ success: true, message: "Server is working perfectly!" });
+});
+
 const express = require('express');
 const cors = require('cors');
 const moment = require('moment');
