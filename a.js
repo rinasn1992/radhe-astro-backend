@@ -10,30 +10,28 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.send('Radhe Astro Backend API is running successfully!');
 });
-// Navamsha API Route (Dynamic & Professional)
+// Navamsha API Route (Debug Mode)
 app.post('/api/navamsha', async (req, res) => {
     try {
         const { name, dob, tob, pob } = req.body;
         
-        // Date parsing (DD/MM/YYYY)
-        const dobParts = dob ? dob.split('/') : ['01', '01', '2000'];
+        const dobParts = dob ? dob.split('/') : ['03', '03', '1988'];
         const day = parseInt(dobParts[0], 10);
         const month = parseInt(dobParts[1], 10);
         const year = parseInt(dobParts[2], 10);
 
-        // Time parsing (HH:MM)
-        const tobParts = tob ? tob.split(':') : ['12', '00'];
+        const tobParts = tob ? tob.split(':') : ['23', '30'];
         const hour = parseInt(tobParts[0], 10);
         const min = parseInt(tobParts[1], 10);
 
-        // Dynamic payload jo frontend se aane wale pob (Place of Birth) ko use karega
         const apiPayload = {
             day: day,
             month: month,
             year: year,
             hour: hour,
             min: min,
-            place: pob || "New Delhi", // Agar user ne place bhara hai toh wo jayega, nahi toh default
+            lat: 25.2138,
+            lon: 84.9814,
             tzone: 5.5
         };
 
@@ -41,12 +39,20 @@ app.post('/api/navamsha', async (req, res) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer vda_live_cc1b52dc_ie316Y9F6iGcJH-dUFheqdxGw65LLl8RbsCCnUt4EDU' // 👈 Yahan apni asli vda_live key rakhiye ga
+                'Authorization': 'Bearer vda_live_cc1b52dc_ie316Y9F6iGcJH-dUFheqdxGw65LLl8RbsCCnUt4EDU' // 👈 Yahan apni asli key daalna na bhulein
             },
             body: JSON.stringify(apiPayload)
         });
 
         const result = await apiResponse.json();
+
+        // Agar API error return kare toh use bhi pakdo
+        if (!apiResponse.ok) {
+            return res.status(500).json({ 
+                success: false, 
+                message: "Third-party API Error: " + JSON.stringify(result) 
+            });
+        }
 
         res.json({
             success: true,
@@ -55,10 +61,11 @@ app.post('/api/navamsha', async (req, res) => {
         });
 
     } catch (error) {
-        console.error("API Error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        console.error("Server Crash Error:", error);
+        res.status(500).json({ success: false, message: "Server Error: " + error.message });
     }
 });
+
 
 // Port listener zaroori hai Render ke liye
 const PORT = process.env.PORT || 3000;
