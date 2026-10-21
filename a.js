@@ -10,35 +10,31 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.send('Radhe Astro Backend API is running successfully!');
 });
-// Asli Navamsha API Route (vda_live key ke sath)
+// Navamsha API Route (Updated & Safe)
 app.post('/api/navamsha', async (req, res) => {
     try {
         const { name, dob, tob, pob } = req.body;
         
-        // Yahan aap apni real Vedic Astrology API ko call kar rahe hain
-        const apiResponse = await fetch('https://api.vedicastrologyapi.com/v3-json/horoscope/navamsha-chart', {
+        // API Request using built-in fetch or fallback
+        const response = await fetch('https://api.vedicastrologyapi.com/v3-json/horoscope/navamsha-chart', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer vda_live_bc7adba0_-s513GlzBfGHLhNBeWbdz8VSTOrA_bc6pBH8xXsKlEU' // 👈 Yahan apni vda_live wali key daalni hai!
+                'Authorization': 'Bearer vda_live_bc7adba0_-s513GlzBfGHLhNBeWbdz8VSTOrA_bc6pBH8xXsKlEU' // 👈 Yahan apni vda_live key rakhiye ga
             },
-            body: JSON.stringify({
-                name: name,
-                dob: dob,
-                tob: tob,
-                pob: pob
-            })
+            body: JSON.stringify({ name, dob, tob, pob })
         });
 
-        const data = await apiResponse.json();
+        const result = await response.json();
 
         res.json({
             success: true,
-            message: "Real Navamsha data successfully fetched",
-            planetDetails: data.output || data
+            message: "Navamsha data fetched successfully",
+            planetDetails: result.output || result
         });
 
     } catch (error) {
+        console.error("API Error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 });
