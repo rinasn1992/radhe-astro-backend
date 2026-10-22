@@ -7,8 +7,9 @@ app.use(express.json());
 
 // Root Route
 app.get('/', (req, res) => {
-    res.send('Radhe Astro Backend API is running successfully!');
+    res.json({ success: true, message: "Radhe Astro Backend API is running successfully!" });
 });
+
 
 // Navamsha API Route
 app.post('/api/navamsha', async (req, res) => {
