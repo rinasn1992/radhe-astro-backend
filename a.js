@@ -14,28 +14,19 @@ app.get('/', (req, res) => {
 // Navamsha API Route
 app.post('/api/navamsha', async (req, res) => {
     try {
-        const { name, dob, tob, pob } = req.body;
-            const dobParts = dob ? dob.split('/') : ['03', '03', '1988'];
-                const day = parseInt(dobParts[0], 10);
-    const month = parseInt(dobParts[1], 10);
-    const year = parseInt(dobParts[2], 10);
-
-    const tobParts = tob ? tob.split(':') : ['23', '30'];
-    const hour = parseInt(tobParts[0], 10);
-    const min = parseInt(tobParts[1], 10);
+            const { name, year, month, day, hour, minute, place } = req.body;
 
     const apiPayload = {
-        date: day,
-        month: month,
-        year: year,
-        hours: hour,
-        minutes: min,
+        date: day ? parseInt(day, 10) : 12,
+        month: month ? parseInt(month, 10) : 10,
+        year: year ? parseInt(year, 10) : 1990,
+        hours: hour ? parseInt(hour, 10) : 10,
+        minutes: minute ? parseInt(minute, 10) : 30,
         latitude: 25.2138,
         longitude: 84.9814,
         timezone: 5.5
     };
         
-
         const apiResponse = await fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
             method: 'POST',
             headers: {
