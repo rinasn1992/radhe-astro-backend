@@ -48,8 +48,6 @@ app.post('/api/navamsha', async (req, res) => {
         const result = await apiResponse.json();
 console.log("API Response Data:", JSON.stringify(result, null, 2)); // Yeh nayi line yahan dalni hai
         
-        const result = await apiResponse.json();
-
         res.json({
             success: true,
             message: "Navamsha data fetched successfully",
