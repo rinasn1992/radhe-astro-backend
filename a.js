@@ -17,7 +17,6 @@ app.post('/api/navamsha', async (req, res) => {
         const { name, dob, tob, pob } = req.body;
             const dobParts = dob ? dob.split('/') : ['03', '03', '1988'];
                 const day = parseInt(dobParts[0], 10);
-    const day = parseInt(dobParts[0], 10);
     const month = parseInt(dobParts[1], 10);
     const year = parseInt(dobParts[2], 10);
 
