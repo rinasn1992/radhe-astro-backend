@@ -36,7 +36,7 @@ app.post('/api/navamsha', async (req, res) => {
             tzone: 5.5
         };
 
-        const apiResponse = await fetch('https://api.vedicastrologyapi.com/v3-json/horoscope/navamsha-chart', {
+        const apiResponse = await fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
