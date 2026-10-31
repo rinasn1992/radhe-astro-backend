@@ -27,26 +27,41 @@ app.post('/api/navamsha', async (req, res) => {
         timezone: 5.5
     };
         
-        const apiResponse = await fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer vda_live_cc1b52dc_ie316Y9F6iGcJH-dUFheqdxGw65LLl8RbsCCnUt4EDU' // 👈 Yahan apni asli vda_live key daalna na bhulein
-            },
-            body: JSON.stringify(apiPayload)
-        });
+            // Multiple API calls: Kundali Advanced + Planet Positions
+    const [kundaliResponse, planetsResponse] = await Promise.all([
+      fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXwG65LL18RbsCCnUt4EDU'
+        },
+        body: JSON.stringify(apiPayload)
+      }),
+      fetch('https://api.navamsha.in/api/v1/planets/extended', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXwG65LL18RbsCCnUt4EDU'
+        },
+        body: JSON.stringify(apiPayload)
+      })
+    ]);
 
-        const result = await apiResponse.json();
-        console.log("External API Raw Output:", JSON.stringify(result, null, 2));
-        
-console.log("API Response Data:", JSON.stringify(result, null, 2)); // Yeh nayi line yahan dalni hai
-        
-        res.json({
-            success: true,
-            message: "Navamsha data fetched successfully",
-            planetDetails: result.output || result
-        });
+    const kundaliResult = await kundaliResponse.json();
+    const planetsResult = await planetsResponse.json();
 
+    // Dono data ko combine karna
+    const combinedOutput = kundaliResult.output || kundaliResult;
+    combinedOutput.planet_positions = planetsResult.output || planetsResult;
+
+    console.log("Combined API Raw Output:", JSON.stringify(combinedOutput, null, 2));
+
+    res.json({
+      success: true,
+      message: "Navamsha and Planet data fetched successfully",
+      planetDetails: combinedOutput
+    });
+        
     } catch (error) {
         console.error("API Error:", error);
         res.status(500).json({ success: false, message: error.message });
