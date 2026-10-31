@@ -27,26 +27,45 @@ app.post('/api/navamsha', async (req, res) => {
         timezone: 5.5
     };
         
-            // Multiple API calls: Kundali Advanced + Planet Positions
-    const [kundaliResponse, planetsResponse] = await Promise.all([
-      fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXwG65LL18RbsCCnUt4EDU'
-        },
-        body: JSON.stringify(apiPayload)
-      }),
-      fetch('https://api.navamsha.in/api/v1/planets/extended', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXwG65LL18RbsCCnUt4EDU'
-        },
-        body: JSON.stringify(apiPayload)
-      })
-    ]);
+                // Safe API call: Kundali Advanced (Primary) + Planets (Optional with catch)
+    const kundaliResponse = await fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXwG65LL18RbsCCnUt4EDU'
+      },
+      body: JSON.stringify(apiPayload)
+    });
 
+    const kundaliResult = await kundaliResponse.json();
+    let combinedOutput = kundaliResult.output || kundaliResult;
+
+    // Planets API call with safety catch so it never crashes the app
+    try {
+      const planetsResponse = await fetch('https://api.navamsha.in/api/v1/planets/extended', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXwG65LL18RbsCCnUt4EDU'
+        },
+        body: JSON.stringify(apiPayload)
+      });
+      const planetsResult = await planetsResponse.json();
+      if (!planetsResult.detail) {
+        combinedOutput.planet_positions = planetsResult.output || planetsResult;
+      }
+    } catch (err) {
+      console.log("Planets API optional fetch skipped:", err.message);
+    }
+
+    console.log("Final Combined Output:", JSON.stringify(combinedOutput, null, 2));
+
+    res.json({
+      success: true,
+      message: "Navamsha data fetched successfully",
+      planetDetails: combinedOutput
+    });
+        
     const kundaliResult = await kundaliResponse.json();
     const planetsResult = await planetsResponse.json();
 
