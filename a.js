@@ -38,12 +38,12 @@ app.post('/api/navamsha', async (req, res) => {
         const result = await apiResponse.json();
         console.log("API Response Data:", JSON.stringify(result, null, 2));
 
-        res.json({
-            success: true,
-            message: "Navamsha data fetched successfully",
-            planetDetails: result.output || result
-        });
-
+            res.json({
+      success: true,
+      message: "Navamsha data fetched successfully",
+      planetDetails: result.output || result
+    });
+        
     } catch (error) {
         console.error("API Error:", error);
         res.status(500).json({ success: false, message: error.message });
