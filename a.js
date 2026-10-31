@@ -26,8 +26,7 @@ app.post('/api/navamsha', async (req, res) => {
         longitude: 84.9814,
         timezone: 5.5
     };
-            // Safe API call: Kundali Advanced (Primary) + Planets (Optional with catch)
-    const kundaliResponse = await fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
+                const apiResponse = await fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -36,33 +35,13 @@ app.post('/api/navamsha', async (req, res) => {
       body: JSON.stringify(apiPayload)
     });
 
-    const kundaliResult = await kundaliResponse.json();
-    let combinedOutput = kundaliResult.output || kundaliResult;
-
-    // Planets API call with safety catch so it never crashes the app
-    try {
-      const planetsResponse = await fetch('https://api.navamsha.in/api/v1/planets/extended', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXwG65LL18RbsCCnUt4EDU'
-        },
-        body: JSON.stringify(apiPayload)
-      });
-      const planetsResult = await planetsResponse.json();
-      if (!planetsResult.detail) {
-        combinedOutput.planet_positions = planetsResult.output || planetsResult;
-      }
-    } catch (err) {
-      console.log("Planets API optional fetch skipped:", err.message);
-    }
-
-    console.log("Final Combined Output:", JSON.stringify(combinedOutput, null, 2));
+    const result = await apiResponse.json();
+    console.log("API Response Data:", JSON.stringify(result, null, 2));
 
     res.json({
       success: true,
       message: "Navamsha data fetched successfully",
-      planetDetails: combinedOutput
+      planetDetails: result.output || result
     });
         
     } catch (error) {
