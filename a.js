@@ -26,8 +26,7 @@ app.post('/api/navamsha', async (req, res) => {
         longitude: 84.9814,
         timezone: 5.5
     };
-        
-                // Safe API call: Kundali Advanced (Primary) + Planets (Optional with catch)
+            // Safe API call: Kundali Advanced (Primary) + Planets (Optional with catch)
     const kundaliResponse = await fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
       method: 'POST',
       headers: {
@@ -63,21 +62,6 @@ app.post('/api/navamsha', async (req, res) => {
     res.json({
       success: true,
       message: "Navamsha data fetched successfully",
-      planetDetails: combinedOutput
-    });
-        
-    const kundaliResult = await kundaliResponse.json();
-    const planetsResult = await planetsResponse.json();
-
-    // Dono data ko combine karna
-    const combinedOutput = kundaliResult.output || kundaliResult;
-    combinedOutput.planet_positions = planetsResult.output || planetsResult;
-
-    console.log("Combined API Raw Output:", JSON.stringify(combinedOutput, null, 2));
-
-    res.json({
-      success: true,
-      message: "Navamsha and Planet data fetched successfully",
       planetDetails: combinedOutput
     });
         
