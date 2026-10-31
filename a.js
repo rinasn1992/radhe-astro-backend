@@ -10,40 +10,40 @@ app.get('/', (req, res) => {
     res.json({ success: true, message: "Radhe Astro Backend API is running successfully!" });
 });
 
-
 // Navamsha API Route
 app.post('/api/navamsha', async (req, res) => {
     try {
-            const { name, year, month, day, hour, minute, place } = req.body;
+        const { name, year, month, day, hour, minute, place } = req.body;
 
-    const apiPayload = {
-        date: day ? parseInt(day, 10) : 12,
-        month: month ? parseInt(month, 10) : 10,
-        year: year ? parseInt(year, 10) : 1990,
-        hours: hour ? parseInt(hour, 10) : 10,
-        minutes: minute ? parseInt(minute, 10) : 30,
-        latitude: 25.2138,
-        longitude: 84.9814,
-        timezone: 5.5
-    };
-                const apiResponse = await fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXwG65LL18RbsCCnUt4EDU'
-      },
-      body: JSON.stringify(apiPayload)
-    });
+        const apiPayload = {
+            date: day ? parseInt(day, 10) : 12,
+            month: month ? parseInt(month, 10) : 10,
+            year: year ? parseInt(year, 10) : 1990,
+            hours: hour ? parseInt(hour, 10) : 10,
+            minutes: minute ? parseInt(minute, 10) : 30,
+            latitude: 25.2138,
+            longitude: 84.9814,
+            timezone: 5.5
+        };
 
-    const result = await apiResponse.json();
-    console.log("API Response Data:", JSON.stringify(result, null, 2));
+        const apiResponse = await fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXwG65LL18RbsCCnUt4EDU'
+            },
+            body: JSON.stringify(apiPayload)
+        });
 
-    res.json({
-      success: true,
-      message: "Navamsha data fetched successfully",
-      planetDetails: result.output || result
-    });
-        
+        const result = await apiResponse.json();
+        console.log("API Response Data:", JSON.stringify(result, null, 2));
+
+        res.json({
+            success: true,
+            message: "Navamsha data fetched successfully",
+            planetDetails: result.output || result
+        });
+
     } catch (error) {
         console.error("API Error:", error);
         res.status(500).json({ success: false, message: error.message });
