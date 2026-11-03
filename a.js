@@ -29,8 +29,8 @@ app.post('/api/navamsha', async (req, res) => {
         const apiResponse = await fetch('https://api.navamsha.in/api/v1/astrology/kundli/advanced', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                      'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXW65LL18RbSCnUt4EDU'
+                      'Content-Type': 'application/json',
+      'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXW65LL18RbSCnUt4EDU'
             },
             body: JSON.stringify(apiPayload)
         });
