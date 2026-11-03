@@ -30,7 +30,7 @@ app.post('/api/navamsha', async (req, res) => {
             method: 'POST',
             headers: {
                       'Content-Type': 'application/json',
-      'Authorization': 'Bearer vda_live_cc1b52dc_14316Y9F61gCJH-dUFhagdXW65LL18RbSCnUt4EDU'
+      'Authorization': 'Bearer vda_live_bc7adba0_-s513GlzBfGHLhNBeWbdz8VSTOrA_bc6pBH8xXsKlEU'
             },
             body: JSON.stringify(apiPayload)
         });
