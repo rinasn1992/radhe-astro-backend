@@ -1,7 +1,7 @@
-
 const express = require('express');
 const cors = require('cors');
 const { find } = require('geo-tz');
+
 const app = express();
 
 app.use(cors({
@@ -56,6 +56,158 @@ function parseBirthTime(tob) {
     };
 }
 
+// Convert IANA timezone into birth-date-specific UTC offset
+function getTimezoneOffsetHours(timeZone, dateParts, timeParts) {
+    try {
+        const inputUTC = Date.UTC(
+            dateParts.year,
+            dateParts.month - 1,
+            dateParts.date,
+            timeParts.hours,
+            timeParts.minutes
+        );
+
+        const formatter = new Intl.DateTimeFormat('en-GB', {
+            timeZone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hourCycle: 'h23'
+        });
+
+        const parts = formatter.formatToParts(new Date(inputUTC));
+        const values = {};
+
+        for (const part of parts) {
+            if (part.type !== 'literal') {
+                values[part.type] = Number(part.value);
+            }
+        }
+
+        const localAsUTC = Date.UTC(
+            values.year,
+            values.month - 1,
+            values.day,
+            values.hour,
+            values.minute,
+            values.second
+        );
+
+        return (localAsUTC - inputUTC) / 3600000;
+
+    } catch (error) {
+        return null;
+    }
+}
+
+// Birth Place Search Route - Photon + OpenStreetMap
+app.get('/api/places', async (req, res) => {
+    try {
+        const query = String(req.query.q || '').trim();
+
+        if (query.length < 2) {
+            return res.json({
+                success: true,
+                places: []
+            });
+        }
+
+        if (query.length > 100) {
+            return res.status(400).json({
+                success: false,
+                message: 'Search text is too long.'
+            });
+        }
+
+        const photonUrl = new URL(
+            'https://photon.komoot.io/api/'
+        );
+
+        photonUrl.searchParams.set('q', query);
+        photonUrl.searchParams.set('limit', '8');
+        photonUrl.searchParams.set('lang', 'en');
+
+        const response = await fetch(photonUrl, {
+            headers: {
+                'User-Agent': 'RadheAstro/1.0'
+            },
+            signal: AbortSignal.timeout(15000)
+        });
+
+        if (!response.ok) {
+            throw new Error('Place search service unavailable');
+        }
+
+        const data = await response.json();
+
+        const places = (data.features || [])
+            .map(feature => {
+                const properties = feature.properties || {};
+                const coordinates =
+                    feature.geometry?.coordinates || [];
+
+                const longitude = Number(coordinates[0]);
+                const latitude = Number(coordinates[1]);
+
+                if (
+                    !Number.isFinite(latitude) ||
+                    !Number.isFinite(longitude) ||
+                    latitude < -90 || latitude > 90 ||
+                    longitude < -180 || longitude > 180
+                ) {
+                    return null;
+                }
+
+                const timezoneList = find(latitude, longitude);
+                const timezoneName = timezoneList[0];
+
+                if (!timezoneName) return null;
+
+                const parts = [
+                    properties.name,
+                    properties.city,
+                    properties.district,
+                    properties.state,
+                    properties.country
+                ].filter(Boolean);
+
+                const displayName = [...new Set(parts)].join(', ');
+
+                return {
+                    id: [
+                        properties.osm_type || '',
+                        properties.osm_id || '',
+                        latitude,
+                        longitude
+                    ].join('-'),
+
+                    name: properties.name || displayName,
+                    displayName,
+                    latitude,
+                    longitude,
+                    timezoneName
+                };
+            })
+            .filter(Boolean);
+
+        return res.json({
+            success: true,
+            places
+        });
+
+    } catch (error) {
+        console.error('Place Search Error:', error.message);
+
+        return res.status(502).json({
+            success: false,
+            message: 'Could not search birth places. Please try again.'
+        });
+    }
+});
+
 // Navamsha API Route
 app.post('/api/navamsha', async (req, res) => {
     try {
@@ -66,14 +218,15 @@ app.post('/api/navamsha', async (req, res) => {
             pob,
             latitude,
             longitude,
-            timezone
+            timezone,
+            timezoneName
         } = req.body || {};
 
         // Required birth details
         if (!dob || !tob || !pob) {
             return res.status(400).json({
                 success: false,
-                message: 'Name, date of birth, time of birth and place of birth are required.'
+                message: 'Date of birth, time of birth and place of birth are required.'
             });
         }
 
@@ -87,26 +240,62 @@ app.post('/api/navamsha', async (req, res) => {
             });
         }
 
-        // Real coordinates are required.
+        // Validate real coordinates
         const lat = Number(latitude);
         const lon = Number(longitude);
-        const tz = Number(timezone);
 
         if (
             latitude === undefined ||
             longitude === undefined ||
-            timezone === undefined ||
             !Number.isFinite(lat) ||
             !Number.isFinite(lon) ||
-            !Number.isFinite(tz) ||
             lat < -90 || lat > 90 ||
-            lon < -180 || lon > 180 ||
-            tz < -14 || tz > 14
+            lon < -180 || lon > 180
         ) {
             return res.status(400).json({
                 success: false,
-                message: 'Valid latitude, longitude and timezone are required. Please provide actual birth-place coordinates.'
+                message: 'Valid latitude and longitude are required.'
             });
+        }
+
+        // Get date-specific timezone offset
+        let tz;
+
+        if (timezoneName) {
+            if (typeof timezoneName !== 'string') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid timezone name.'
+                });
+            }
+
+            tz = getTimezoneOffsetHours(
+                timezoneName,
+                dateParts,
+                timeParts
+            );
+
+            if (tz === null || !Number.isFinite(tz)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Could not calculate the birth-place timezone.'
+                });
+            }
+
+        } else {
+            // Backward compatibility with existing frontend
+            tz = Number(timezone);
+
+            if (
+                timezone === undefined ||
+                !Number.isFinite(tz) ||
+                tz < -14 || tz > 14
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Valid timezone or timezoneName is required.'
+                });
+            }
         }
 
         // Read secret from Vercel Environment Variables
@@ -144,6 +333,7 @@ app.post('/api/navamsha', async (req, res) => {
         const responseText = await apiResponse.text();
 
         let result;
+
         try {
             result = JSON.parse(responseText);
         } catch {
@@ -159,7 +349,9 @@ app.post('/api/navamsha', async (req, res) => {
         ) {
             return res.status(502).json({
                 success: false,
-                message: result.message || result.error || 'Navamsha API request failed.',
+                message: result.message ||
+                    result.error ||
+                    'Navamsha API request failed.',
                 providerStatus: result.statusCode || apiResponse.status
             });
         }
@@ -176,16 +368,21 @@ app.post('/api/navamsha', async (req, res) => {
             });
         }
 
-        // Keep the existing frontend response property.
+        // Frontend response
         return res.json({
             success: true,
             message: 'Navamsha data fetched successfully',
             planetDetails,
+
             birthDetails: {
                 name: name || '',
                 dob,
                 tob,
-                pob
+                pob,
+                latitude: lat,
+                longitude: lon,
+                timezone: tz,
+                timezoneName: timezoneName || ''
             }
         });
 
@@ -207,7 +404,10 @@ module.exports = app;
 // Local development only
 if (require.main === module) {
     const PORT = process.env.PORT || 3000;
+
     app.listen(PORT, () => {
-        console.log(`Radhe Astro Server running on port ${PORT}`);
+        console.log(
+            `Radhe Astro Server running on port ${PORT}`
+        );
     });
-}
+        }
