@@ -357,7 +357,7 @@ app.post('/api/navamsha', async (req, res) => {
         }
 
         const planetDetails = result.output || result;
-
+console.log("RADHE COMPLETE NAVAMSHA PROVIDER DATA:", JSON.stringify(result, null, 2));
         if (
             !planetDetails ||
             typeof planetDetails !== 'object'
