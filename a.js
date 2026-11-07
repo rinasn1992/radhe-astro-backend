@@ -368,11 +368,75 @@ console.log("RADHE COMPLETE NAVAMSHA PROVIDER DATA:", JSON.stringify(result, nul
             });
         }
 
+        // D-1 Basic Kundali API
+        let d1Details = null;
+        let d1Error = null;
+
+        try {
+            const d1ApiResponse = await fetch(
+                'https://api.navamsha.in/api/v1/kundali/basic',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': apiKey
+                    },
+                    body: JSON.stringify(apiPayload),
+                    signal: AbortSignal.timeout(25000)
+                }
+            );
+
+            const d1ResponseText = await d1ApiResponse.text();
+
+            let d1Result;
+
+            try {
+                d1Result = JSON.parse(d1ResponseText);
+            } catch {
+                throw new Error('D-1 API returned invalid JSON.');
+            }
+
+            if (
+                !d1ApiResponse.ok ||
+                (d1Result.statusCode &&
+                 Number(d1Result.statusCode) >= 400)
+            ) {
+                throw new Error(
+                    d1Result.message ||
+                    d1Result.error ||
+                    'D-1 API request failed.'
+                );
+            }
+
+            d1Details = d1Result.output || d1Result;
+
+            if (
+                !d1Details ||
+                typeof d1Details !== 'object'
+            ) {
+                throw new Error('D-1 data is invalid.');
+            }
+
+            console.log(
+                'RADHE D1 COMPLETE DATA:',
+                JSON.stringify(d1Details, null, 2)
+            );
+
+        } catch (d1FetchError) {
+            d1Error = d1FetchError.name === 'TimeoutError'
+                ? 'D-1 API request timed out.'
+                : d1FetchError.message;
+
+            console.error('RADHE D1 API ERROR:', d1Error);
+        }
+        
         // Frontend response
         return res.json({
             success: true,
             message: 'Navamsha data fetched successfully',
-            planetDetails,
+planetDetails,
+d1Details,
+d1Error,
 
             birthDetails: {
                 name: name || '',
