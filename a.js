@@ -429,6 +429,69 @@ console.log("RADHE COMPLETE NAVAMSHA PROVIDER DATA:", JSON.stringify(result, nul
 
             console.error('RADHE D1 API ERROR:', d1Error);
         }
+
+        
+        // D-2 Hora Divisional Chart API
+        let d2Details = null;
+        let d2Error = null;
+
+        try {
+            const d2ApiResponse = await fetch(
+                'https://api.navamsha.in/api/v1/divisional/d2',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': apiKey
+                    },
+                    body: JSON.stringify(apiPayload),
+                    signal: AbortSignal.timeout(25000)
+                }
+            );
+
+            const d2ResponseText = await d2ApiResponse.text();
+
+            let d2Result;
+
+            try {
+                d2Result = JSON.parse(d2ResponseText);
+            } catch {
+                throw new Error('D-2 API returned invalid JSON.');
+            }
+
+            if (
+                !d2ApiResponse.ok ||
+                (d2Result.statusCode &&
+                 Number(d2Result.statusCode) >= 400)
+            ) {
+                throw new Error(
+                    d2Result.message ||
+                    d2Result.error ||
+                    'D-2 API request failed.'
+                );
+            }
+
+            d2Details = d2Result.output || d2Result;
+
+            if (
+                !d2Details ||
+                typeof d2Details !== 'object'
+            ) {
+                throw new Error('D-2 data is invalid.');
+            }
+
+            console.log(
+                'RADHE D2 COMPLETE DATA:',
+                JSON.stringify(d2Details, null, 2)
+            );
+
+        } catch (d2FetchError) {
+            d2Error = d2FetchError.name === 'TimeoutError'
+                ? 'D-2 API request timed out.'
+                : d2FetchError.message;
+
+            console.error('RADHE D2 API ERROR:', d2Error);
+        }
         
         // Frontend response
         return res.json({
@@ -437,6 +500,8 @@ console.log("RADHE COMPLETE NAVAMSHA PROVIDER DATA:", JSON.stringify(result, nul
 planetDetails,
 d1Details,
 d1Error,
+d2Details,
+d2Error,
 
             birthDetails: {
                 name: name || '',
