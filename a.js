@@ -493,6 +493,123 @@ console.log("RADHE COMPLETE NAVAMSHA PROVIDER DATA:", JSON.stringify(result, nul
             console.error('RADHE D2 API ERROR:', d2Error);
         }
         
+        // D-3 Drekkana Divisional Chart API
+        let d3Details = null;
+        let d3Error = null;
+
+        try {
+            const d3ApiResponse = await fetch(
+                'https://api.navamsha.in/api/v1/divisional/d3',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': apiKey
+                    },
+                    body: JSON.stringify(apiPayload),
+                    signal: AbortSignal.timeout(25000)
+                }
+            );
+
+            const d3ResponseText = await d3ApiResponse.text();
+            let d3Result;
+
+            try {
+                d3Result = JSON.parse(d3ResponseText);
+            } catch {
+                throw new Error('D-3 API returned invalid JSON.');
+            }
+
+            if (
+                !d3ApiResponse.ok ||
+                (d3Result.statusCode &&
+                 Number(d3Result.statusCode) >= 400)
+            ) {
+                throw new Error(
+                    d3Result.message ||
+                    d3Result.error ||
+                    'D-3 API request failed.'
+                );
+            }
+
+            d3Details = d3Result.output || d3Result;
+
+            if (!d3Details || typeof d3Details !== 'object') {
+                throw new Error('D-3 data is invalid.');
+            }
+
+            console.log(
+                'RADHE D3 COMPLETE DATA:',
+                JSON.stringify(d3Details, null, 2)
+            );
+
+        } catch (d3FetchError) {
+            d3Error = d3FetchError.name === 'TimeoutError'
+                ? 'D-3 API request timed out.'
+                : d3FetchError.message;
+
+            console.error('RADHE D3 API ERROR:', d3Error);
+        }
+
+
+        // D-4 Chaturthamsa Divisional Chart API
+        let d4Details = null;
+        let d4Error = null;
+
+        try {
+            const d4ApiResponse = await fetch(
+                'https://api.navamsha.in/api/v1/divisional/d4',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': apiKey
+                    },
+                    body: JSON.stringify(apiPayload),
+                    signal: AbortSignal.timeout(25000)
+                }
+            );
+
+            const d4ResponseText = await d4ApiResponse.text();
+            let d4Result;
+
+            try {
+                d4Result = JSON.parse(d4ResponseText);
+            } catch {
+                throw new Error('D-4 API returned invalid JSON.');
+            }
+
+            if (
+                !d4ApiResponse.ok ||
+                (d4Result.statusCode &&
+                 Number(d4Result.statusCode) >= 400)
+            ) {
+                throw new Error(
+                    d4Result.message ||
+                    d4Result.error ||
+                    'D-4 API request failed.'
+                );
+            }
+
+            d4Details = d4Result.output || d4Result;
+
+            if (!d4Details || typeof d4Details !== 'object') {
+                throw new Error('D-4 data is invalid.');
+            }
+
+            console.log(
+                'RADHE D4 COMPLETE DATA:',
+                JSON.stringify(d4Details, null, 2)
+            );
+
+        } catch (d4FetchError) {
+            d4Error = d4FetchError.name === 'TimeoutError'
+                ? 'D-4 API request timed out.'
+                : d4FetchError.message;
+
+            console.error('RADHE D4 API ERROR:', d4Error);
+        }
+        
         // Frontend response
         return res.json({
             success: true,
@@ -502,6 +619,10 @@ d1Details,
 d1Error,
 d2Details,
 d2Error,
+d3Details,
+d3Error,
+d4Details,
+d4Error,
 
             birthDetails: {
                 name: name || '',
