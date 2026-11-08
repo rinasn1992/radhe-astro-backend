@@ -725,6 +725,124 @@ try {
 
     console.error('RADHE D9 API ERROR:', d9Error);
 }
+
+// ==========================================
+// RADHE ASTRO - D5, D6, D8, D10, D11, D12
+// Divisional Chart API Calls
+// ==========================================
+
+async function fetchRadheDivisionalChart(chartCode) {
+    let chartDetails = null;
+    let chartError = null;
+
+    try {
+        const apiResponse = await fetch(
+            `https://api.navamsha.in/api/v1/divisional/${chartCode.toLowerCase()}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey
+                },
+                body: JSON.stringify(apiPayload),
+                signal: AbortSignal.timeout(25000)
+            }
+        );
+
+        const responseText = await apiResponse.text();
+        let result;
+
+        try {
+            result = JSON.parse(responseText);
+        } catch {
+            throw new Error(`${chartCode} API returned invalid JSON.`);
+        }
+
+        if (
+            !apiResponse.ok ||
+            (result.statusCode &&
+             Number(result.statusCode) >= 400)
+        ) {
+            throw new Error(
+                result.message ||
+                result.error ||
+                `${chartCode} API request failed.`
+            );
+        }
+
+        chartDetails = result.output || result;
+
+        if (
+            !chartDetails ||
+            typeof chartDetails !== 'object'
+        ) {
+            throw new Error(`${chartCode} data is invalid.`);
+        }
+
+        console.log(
+            `RADHE ${chartCode} COMPLETE DATA:`,
+            JSON.stringify(chartDetails, null, 2)
+        );
+
+    } catch (fetchError) {
+        chartError = fetchError.name === 'TimeoutError'
+            ? `${chartCode} API request timed out.`
+            : fetchError.message;
+
+        console.error(
+            `RADHE ${chartCode} API ERROR:`,
+            chartError
+        );
+    }
+
+    return {
+        details: chartDetails,
+        error: chartError
+    };
+}
+
+
+// D-5 Panchamsha
+const {
+    details: d5Details,
+    error: d5Error
+} = await fetchRadheDivisionalChart('D5');
+
+
+// D-6 Shashtamsha
+const {
+    details: d6Details,
+    error: d6Error
+} = await fetchRadheDivisionalChart('D6');
+
+
+// D-8 Ashtamsha
+const {
+    details: d8Details,
+    error: d8Error
+} = await fetchRadheDivisionalChart('D8');
+
+
+// D-10 Dashamsha
+const {
+    details: d10Details,
+    error: d10Error
+} = await fetchRadheDivisionalChart('D10');
+
+
+// D-11 Rudramsha
+const {
+    details: d11Details,
+    error: d11Error
+} = await fetchRadheDivisionalChart('D11');
+
+
+// D-12 Dwadashamsha
+const {
+    details: d12Details,
+    error: d12Error
+} = await fetchRadheDivisionalChart('D12');
+        
         // Frontend response
         return res.json({
             success: true,
@@ -742,6 +860,19 @@ d7Details,
 d7Error,
 d9Details,
 d9Error,
+d5Details,
+d5Error,
+d6Details,
+d6Error,
+d8Details,
+d8Error,
+d10Details,
+d10Error,
+d11Details,
+d11Error,
+d12Details,
+d12Error,
+            
 
             birthDetails: {
                 name: name || '',
