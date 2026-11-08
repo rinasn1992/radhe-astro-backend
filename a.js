@@ -609,7 +609,122 @@ console.log("RADHE COMPLETE NAVAMSHA PROVIDER DATA:", JSON.stringify(result, nul
 
             console.error('RADHE D4 API ERROR:', d4Error);
         }
-        
+        // D-7 Saptamamsa Divisional Chart API
+let d7Details = null;
+let d7Error = null;
+
+try {
+    const d7ApiResponse = await fetch(
+        'https://api.navamsha.in/api/v1/divisional/d7',
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': apiKey
+            },
+            body: JSON.stringify(apiPayload),
+            signal: AbortSignal.timeout(25000)
+        }
+    );
+
+    const d7ResponseText = await d7ApiResponse.text();
+    let d7Result;
+
+    try {
+        d7Result = JSON.parse(d7ResponseText);
+    } catch {
+        throw new Error('D-7 API returned invalid JSON.');
+    }
+
+    if (
+        !d7ApiResponse.ok ||
+        (d7Result.statusCode &&
+         Number(d7Result.statusCode) >= 400)
+    ) {
+        throw new Error(
+            d7Result.message ||
+            d7Result.error ||
+            'D-7 API request failed.'
+        );
+    }
+
+    d7Details = d7Result.output || d7Result;
+
+    if (!d7Details || typeof d7Details !== 'object') {
+        throw new Error('D-7 data is invalid.');
+    }
+
+    console.log(
+        'RADHE D7 COMPLETE DATA:',
+        JSON.stringify(d7Details, null, 2)
+    );
+
+} catch (d7FetchError) {
+    d7Error = d7FetchError.name === 'TimeoutError'
+        ? 'D-7 API request timed out.'
+        : d7FetchError.message;
+
+    console.error('RADHE D7 API ERROR:', d7Error);
+}
+
+
+// D-9 Navamsha Divisional Chart API
+let d9Details = null;
+let d9Error = null;
+
+try {
+    const d9ApiResponse = await fetch(
+        'https://api.navamsha.in/api/v1/divisional/d9',
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': apiKey
+            },
+            body: JSON.stringify(apiPayload),
+            signal: AbortSignal.timeout(25000)
+        }
+    );
+
+    const d9ResponseText = await d9ApiResponse.text();
+    let d9Result;
+
+    try {
+        d9Result = JSON.parse(d9ResponseText);
+    } catch {
+        throw new Error('D-9 API returned invalid JSON.');
+    }
+
+    if (
+        !d9ApiResponse.ok ||
+        (d9Result.statusCode &&
+         Number(d9Result.statusCode) >= 400)
+    ) {
+        throw new Error(
+            d9Result.message ||
+            d9Result.error ||
+            'D-9 API request failed.'
+        );
+    }
+
+    d9Details = d9Result.output || d9Result;
+
+    if (!d9Details || typeof d9Details !== 'object') {
+        throw new Error('D-9 data is invalid.');
+    }
+
+    console.log(
+        'RADHE D9 COMPLETE DATA:',
+        JSON.stringify(d9Details, null, 2)
+    );
+
+} catch (d9FetchError) {
+    d9Error = d9FetchError.name === 'TimeoutError'
+        ? 'D-9 API request timed out.'
+        : d9FetchError.message;
+
+    console.error('RADHE D9 API ERROR:', d9Error);
+}
         // Frontend response
         return res.json({
             success: true,
@@ -623,6 +738,10 @@ d3Details,
 d3Error,
 d4Details,
 d4Error,
+d7Details,
+d7Error,
+d9Details,
+d9Error,
 
             birthDetails: {
                 name: name || '',
