@@ -1,9 +1,13 @@
+
 {
   "version": 2,
   "builds": [
     {
       "src": "a.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": "node_modules/@astrologer/ephemera/wasm/**"
+      }
     }
   ],
   "routes": [
@@ -13,4 +17,3 @@
     }
   ]
 }
-
