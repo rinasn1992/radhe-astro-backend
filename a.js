@@ -1193,13 +1193,24 @@ app.get('/api/ephemera-guru-shani-test', async (req, res) => {
                         : 'STATIONARY'
             };
         }
+
 const ephemeraMethods = {
     ownMethods: Object.keys(eph),
     prototypeMethods: Object.getOwnPropertyNames(
         Object.getPrototypeOf(eph)
-    )
+    ),
+    methodDetails: {
+        longitudeCrossing: {
+            argumentsCount: eph.longitudeCrossing.length,
+            source: eph.longitudeCrossing.toString()
+        },
+        station: {
+            argumentsCount: eph.station.length,
+            source: eph.station.toString()
+        }
+    }
 };
-
+        
 console.log(
     'EPHEMERA AVAILABLE METHODS:',
     JSON.stringify(ephemeraMethods)
