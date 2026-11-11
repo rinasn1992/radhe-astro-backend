@@ -1017,6 +1017,82 @@ app.get('/api/astronomy-jupiter-24h', (req, res) => {
     }
 });
 
+app.get('/api/astronomy-saturn-24h', (req, res) => {
+    try {
+        // Two fixed UTC timestamps, exactly 24 hours apart
+        const date1 = new Date('2026-11-11T11:50:00Z');
+        const date2 = new Date('2026-11-12T11:50:00Z');
+
+        // Lahiri ayanamsha - November 2026
+        const ayanamsha = 24 + (13 / 60) + (55 / 3600);
+
+        function getSaturnPosition(date) {
+            const vector = Astronomy.GeoVector(
+                Astronomy.Body.Saturn,
+                date,
+                true
+            );
+
+            const ecliptic = Astronomy.Ecliptic(vector);
+
+            const tropical = ecliptic.elon;
+
+            let sidereal = tropical - ayanamsha;
+
+            if (sidereal < 0) {
+                sidereal += 360;
+            }
+
+            return {
+                date: date.toISOString(),
+                tropicalLongitude: tropical,
+                siderealLongitude: sidereal,
+                eclipticLatitude: ecliptic.elat
+            };
+        }
+
+        const position1 = getSaturnPosition(date1);
+        const position2 = getSaturnPosition(date2);
+
+        // Calculate angular movement in 24 hours
+        let movement = (
+            position2.siderealLongitude -
+            position1.siderealLongitude
+        );
+
+        if (movement > 180) movement -= 360;
+        if (movement < -180) movement += 360;
+
+        const dailyMotionArcMinutes = movement * 60;
+
+        return res.json({
+            success: true,
+            test: 'Saturn 24-hour movement',
+            ayanamshaUsed: ayanamsha,
+            position1,
+            position2,
+            dailyMotionDegrees: movement,
+            dailyMotionArcMinutes: dailyMotionArcMinutes,
+            direction: movement > 0
+                ? 'DIRECT'
+                : movement < 0
+                    ? 'RETROGRADE'
+                    : 'STATIONARY'
+        });
+
+    } catch (error) {
+        console.error(
+            'SATURN 24H TEST ERROR:',
+            error.message
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // Vercel serverless export
 module.exports = app;
 
