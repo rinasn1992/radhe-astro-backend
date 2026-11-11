@@ -1242,6 +1242,145 @@ console.log(
     }
 });
 
+// ==========================================
+// GURU - SHANI DYNAMIC SIDEREAL MOTION CHECK
+// ==========================================
+
+app.get('/api/ephemera-guru-shani-motion-check', async (req, res) => {
+    try {
+        if (!ephemeraTestInstancePromise) {
+            ephemeraTestInstancePromise =
+                import('@astrologer/ephemera').then(
+                    async (mod) => ({
+                        eph: await mod.createEphemera(),
+                        Body: mod.Body,
+                        Ayanamsa: mod.Ayanamsa
+                    })
+                );
+        }
+
+        const { eph, Body, Ayanamsa } =
+            await ephemeraTestInstancePromise;
+
+        const date = new Date(
+            req.query.date || '2026-11-11T11:50:00Z'
+        );
+
+        if (isNaN(date.getTime())) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid date. Use ISO 8601 format.'
+            });
+        }
+
+        function normalize(degrees) {
+            return ((degrees % 360) + 360) % 360;
+        }
+
+        function getDecimalYear(d) {
+            const year = d.getUTCFullYear();
+            const start = Date.UTC(year, 0, 1);
+            const end = Date.UTC(year + 1, 0, 1);
+
+            return year +
+                (d.getTime() - start) / (end - start);
+        }
+
+        function getSiderealPosition(d, body) {
+            const year = d.getUTCFullYear();
+            const month = d.getUTCMonth() + 1;
+
+            const day =
+                d.getUTCDate() +
+                (
+                    d.getUTCHours() +
+                    d.getUTCMinutes() / 60 +
+                    d.getUTCSeconds() / 3600 +
+                    d.getUTCMilliseconds() / 3600000
+                ) / 24;
+
+            const jd = eph.julianDate(year, month, day);
+            const tt = eph.utToTt(jd, getDecimalYear(d));
+
+            const planet = eph.position(body, jd);
+            const ayanamsha = eph.ayanamsa(
+                Ayanamsa.Lahiri,
+                tt
+            );
+
+            return {
+                siderealLongitude: normalize(
+                    planet.longitude - ayanamsha
+                ),
+                tropicalLongitude: planet.longitude,
+                ayanamsha: ayanamsha
+            };
+        }
+
+        function checkPlanet(body) {
+            const before = new Date(
+                date.getTime() - 12 * 60 * 60 * 1000
+            );
+
+            const after = new Date(
+                date.getTime() + 12 * 60 * 60 * 1000
+            );
+
+            const p1 = getSiderealPosition(before, body);
+            const p2 = getSiderealPosition(after, body);
+
+            let motion =
+                p2.siderealLongitude -
+                p1.siderealLongitude;
+
+            if (motion > 180) motion -= 360;
+            if (motion < -180) motion += 360;
+
+            const dailyMotion = motion;
+
+            return {
+                siderealLongitude: getSiderealPosition(
+                    date, body
+                ).siderealLongitude,
+
+                dailyMotionDegrees: dailyMotion,
+                dailyMotionArcMinutes: dailyMotion * 60,
+
+                direction: dailyMotion > 0.000001
+                    ? 'DIRECT'
+                    : dailyMotion < -0.000001
+                        ? 'RETROGRADE'
+                        : 'STATIONARY',
+
+                ayanamsha: getSiderealPosition(
+                    date, body
+                ).ayanamsha
+            };
+        }
+
+        return res.json({
+            success: true,
+            engine: 'Ephemera 0.4.1',
+            calculation: 'Dynamic Lahiri Sidereal',
+            method: '12-hour before and after central difference',
+            date: date.toISOString(),
+            jupiter: checkPlanet(Body.Jupiter),
+            saturn: checkPlanet(Body.Saturn)
+        });
+
+    } catch (error) {
+        console.error(
+            'MOTION CHECK ERROR:',
+            error.stack || error.message
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // Vercel serverless export
 module.exports = app;
 
