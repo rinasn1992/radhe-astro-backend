@@ -1956,6 +1956,97 @@ app.get('/api/guru-shani-stations-2026-2035', async (req, res) => {
         const jupiterStations = getStations(Body.Jupiter);
         const saturnStations = getStations(Body.Saturn);
 
+        // Build complete retrograde periods from station events.
+        function buildRetrogradePeriods(events) {
+            const periods = [];
+            let retrogradeStart = null;
+
+            for (const event of events) {
+
+                if (event.event === 'RETROGRADE_START') {
+                    retrogradeStart = event;
+                }
+
+                else if (
+                    event.event === 'DIRECT_START' &&
+                    retrogradeStart
+                ) {
+                    const startTime = new Date(
+                        retrogradeStart.dateUTC
+                    ).getTime();
+
+                    const endTime = new Date(
+                        event.dateUTC
+                    ).getTime();
+
+                    const durationMs = endTime - startTime;
+
+                    periods.push({
+                        status: 'COMPLETED',
+
+                        startUTC: retrogradeStart.dateUTC,
+                        startIST: retrogradeStart.dateIST,
+                        startSign: retrogradeStart.sign,
+                        startDegreeInSign:
+                            retrogradeStart.degreeInSign,
+                        startLongitude:
+                            retrogradeStart.siderealLongitude,
+
+                        endUTC: event.dateUTC,
+                        endIST: event.dateIST,
+                        endSign: event.sign,
+                        endDegreeInSign:
+                            event.degreeInSign,
+                        endLongitude:
+                            event.siderealLongitude,
+
+                        durationMilliseconds: durationMs,
+                        durationHours: Number(
+                            (durationMs / 3600000).toFixed(3)
+                        ),
+                        durationDays: Number(
+                            (durationMs / 86400000).toFixed(6)
+                        )
+                    });
+
+                    retrogradeStart = null;
+                }
+            }
+
+            // If retrograde continues beyond the report period.
+            if (retrogradeStart) {
+                periods.push({
+                    status: 'ONGOING_AT_RANGE_END',
+
+                    startUTC: retrogradeStart.dateUTC,
+                    startIST: retrogradeStart.dateIST,
+                    startSign: retrogradeStart.sign,
+                    startDegreeInSign:
+                        retrogradeStart.degreeInSign,
+                    startLongitude:
+                        retrogradeStart.siderealLongitude,
+
+                    endUTC: null,
+                    endIST: null,
+                    endSign: null,
+                    endDegreeInSign: null,
+                    endLongitude: null,
+
+                    durationMilliseconds: null,
+                    durationHours: null,
+                    durationDays: null
+                });
+            }
+
+            return periods;
+        }
+
+        const jupiterRetrogradePeriods =
+            buildRetrogradePeriods(jupiterStations);
+
+        const saturnRetrogradePeriods =
+            buildRetrogradePeriods(saturnStations);
+        
         return res.json({
             success: true,
             engine: 'Ephemera 0.4.1',
@@ -1973,12 +2064,18 @@ app.get('/api/guru-shani-stations-2026-2035', async (req, res) => {
                 jupiter: {
                     name: 'गुरु',
                     totalStations: jupiterStations.length,
-                    events: jupiterStations
+                    events: jupiterStations,
+totalRetrogradePeriods:
+    jupiterRetrogradePeriods.length,
+retrogradePeriods: jupiterRetrogradePeriods
                 },
                 saturn: {
                     name: 'शनि',
                     totalStations: saturnStations.length,
-                    events: saturnStations
+                    events: saturnStations,
+totalRetrogradePeriods:
+    saturnRetrogradePeriods.length,
+retrogradePeriods: saturnRetrogradePeriods
                 }
             }
         });
