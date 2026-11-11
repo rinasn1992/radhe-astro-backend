@@ -1381,6 +1381,338 @@ app.get('/api/ephemera-guru-shani-motion-check', async (req, res) => {
     }
 });
 
+// ================================================
+// GURU - SHANI RASHI TRANSIT API (2026 - 2035)
+// Dynamic Lahiri Sidereal Calculation
+// ================================================
+
+app.get('/api/guru-shani-transit-2026-2035', async (req, res) => {
+    try {
+        if (!ephemeraTestInstancePromise) {
+            ephemeraTestInstancePromise =
+                import('@astrologer/ephemera').then(
+                    async (mod) => ({
+                        eph: await mod.createEphemera(),
+                        Body: mod.Body,
+                        Ayanamsa: mod.Ayanamsa
+                    })
+                );
+        }
+
+        const { eph, Body, Ayanamsa } =
+            await ephemeraTestInstancePromise;
+
+        const startDate = new Date('2026-01-01T00:00:00Z');
+        const endDate = new Date('2036-01-01T00:00:00Z');
+
+        const STEP_MS = 6 * 60 * 60 * 1000;
+        const BISSECTION_ITERATIONS = 32;
+
+        const signs = [
+            'मेष', 'वृषभ', 'मिथुन', 'कर्क',
+            'सिंह', 'कन्या', 'तुला', 'वृश्चिक',
+            'धनु', 'मकर', 'कुंभ', 'मीन'
+        ];
+
+        function normalize(degrees) {
+            return ((degrees % 360) + 360) % 360;
+        }
+
+        function signedAngleDifference(a, b) {
+            let difference = normalize(a - b);
+
+            if (difference > 180) {
+                difference -= 360;
+            }
+
+            return difference;
+        }
+
+        function getDecimalYear(date) {
+            const year = date.getUTCFullYear();
+            const yearStart = Date.UTC(year, 0, 1);
+            const nextYearStart = Date.UTC(year + 1, 0, 1);
+
+            return year +
+                (date.getTime() - yearStart) /
+                (nextYearStart - yearStart);
+        }
+
+        function getSiderealLongitude(date, body) {
+            const year = date.getUTCFullYear();
+            const month = date.getUTCMonth() + 1;
+
+            const day =
+                date.getUTCDate() +
+                (
+                    date.getUTCHours() * 3600 +
+                    date.getUTCMinutes() * 60 +
+                    date.getUTCSeconds() +
+                    date.getUTCMilliseconds() / 1000
+                ) / 86400;
+
+            const jd = eph.julianDate(year, month, day);
+
+            const tt = eph.utToTt(
+                jd,
+                getDecimalYear(date)
+            );
+
+            const planet = eph.position(body, jd);
+
+            const ayanamsha = eph.ayanamsa(
+                Ayanamsa.Lahiri,
+                tt
+            );
+
+            return normalize(
+                planet.longitude - ayanamsha
+            );
+        }
+
+        function getIST(date) {
+            return new Intl.DateTimeFormat('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            }).format(date);
+        }
+
+        function findCrossingTime(
+            body,
+            startMs,
+            endMs,
+            startLongitude,
+            targetOffset,
+            direction
+        ) {
+            let low = startMs;
+            let high = endMs;
+
+            for (
+                let i = 0;
+                i < BISSECTION_ITERATIONS;
+                i++
+            ) {
+                const middle = Math.floor(
+                    (low + high) / 2
+                );
+
+                const middleLongitude =
+                    getSiderealLongitude(
+                        new Date(middle),
+                        body
+                    );
+
+                const movement =
+                    signedAngleDifference(
+                        middleLongitude,
+                        startLongitude
+                    );
+
+                if (direction === 'DIRECT') {
+                    if (movement < targetOffset) {
+                        low = middle;
+                    } else {
+                        high = middle;
+                    }
+                } else {
+                    if (movement > targetOffset) {
+                        low = middle;
+                    } else {
+                        high = middle;
+                    }
+                }
+            }
+
+            return new Date(high);
+        }
+
+        function getTransitEvents(body) {
+            const events = [];
+
+            let currentMs = startDate.getTime();
+
+            let currentLongitude =
+                getSiderealLongitude(
+                    startDate,
+                    body
+                );
+
+            let unwrappedLongitude = currentLongitude;
+
+            while (currentMs < endDate.getTime()) {
+                const nextMs = Math.min(
+                    currentMs + STEP_MS,
+                    endDate.getTime()
+                );
+
+                const nextLongitude =
+                    getSiderealLongitude(
+                        new Date(nextMs),
+                        body
+                    );
+
+                const movement =
+                    signedAngleDifference(
+                        nextLongitude,
+                        currentLongitude
+                    );
+
+                const nextUnwrapped =
+                    unwrappedLongitude + movement;
+
+                if (movement > 0) {
+                    let boundaryIndex =
+                        Math.floor(
+                            unwrappedLongitude / 30
+                        ) + 1;
+
+                    while (
+                        boundaryIndex * 30 <=
+                        nextUnwrapped + 0.000000001
+                    ) {
+                        const targetLongitude =
+                            boundaryIndex * 30;
+
+                        const targetOffset =
+                            targetLongitude -
+                            unwrappedLongitude;
+
+                        const crossingDate =
+                            findCrossingTime(
+                                body,
+                                currentMs,
+                                nextMs,
+                                currentLongitude,
+                                targetOffset,
+                                'DIRECT'
+                            );
+
+                        const fromIndex =
+                            ((boundaryIndex - 1) % 12 + 12) % 12;
+
+                        const toIndex =
+                            (boundaryIndex % 12 + 12) % 12;
+
+                        events.push({
+                            fromSign: signs[fromIndex],
+                            toSign: signs[toIndex],
+                            direction: 'DIRECT',
+                            crossingUTC:
+                                crossingDate.toISOString(),
+                            crossingIST:
+                                getIST(crossingDate)
+                        });
+
+                        boundaryIndex++;
+                    }
+                }
+
+                if (movement < 0) {
+                    let boundaryIndex =
+                        Math.ceil(
+                            unwrappedLongitude / 30
+                        ) - 1;
+
+                    while (
+                        boundaryIndex * 30 >=
+                        nextUnwrapped - 0.000000001
+                    ) {
+                        const targetLongitude =
+                            boundaryIndex * 30;
+
+                        const targetOffset =
+                            targetLongitude -
+                            unwrappedLongitude;
+
+                        const crossingDate =
+                            findCrossingTime(
+                                body,
+                                currentMs,
+                                nextMs,
+                                currentLongitude,
+                                targetOffset,
+                                'RETROGRADE'
+                            );
+
+                        const fromIndex =
+                            (boundaryIndex % 12 + 12) % 12;
+
+                        const toIndex =
+                            ((boundaryIndex - 1) % 12 + 12) % 12;
+
+                        events.push({
+                            fromSign: signs[fromIndex],
+                            toSign: signs[toIndex],
+                            direction: 'RETROGRADE',
+                            crossingUTC:
+                                crossingDate.toISOString(),
+                            crossingIST:
+                                getIST(crossingDate)
+                        });
+
+                        boundaryIndex--;
+                    }
+                }
+
+                currentMs = nextMs;
+                currentLongitude = nextLongitude;
+                unwrappedLongitude = nextUnwrapped;
+            }
+
+            return events;
+        }
+
+        const jupiterEvents =
+            getTransitEvents(Body.Jupiter);
+
+        const saturnEvents =
+            getTransitEvents(Body.Saturn);
+
+        return res.json({
+            success: true,
+            engine: 'Ephemera 0.4.1',
+            calculation: 'Dynamic Lahiri Sidereal',
+            reference: 'Geocentric',
+            period: {
+                from: '2026-01-01',
+                to: '2035-12-31'
+            },
+            timeZone: 'Asia/Kolkata',
+            method: '6-hour scanning + 32-step bisection refinement',
+            planets: {
+                jupiter: {
+                    name: 'गुरु',
+                    totalTransits: jupiterEvents.length,
+                    events: jupiterEvents
+                },
+                saturn: {
+                    name: 'शनि',
+                    totalTransits: saturnEvents.length,
+                    events: saturnEvents
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error(
+            'GURU SHANI TRANSIT ERROR:',
+            error.stack || error.message
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // Vercel serverless export
 module.exports = app;
 
