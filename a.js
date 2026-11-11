@@ -1093,6 +1093,133 @@ app.get('/api/astronomy-saturn-24h', (req, res) => {
     }
 });
 
+let ephemeraTestInstancePromise = null;
+
+app.get('/api/ephemera-guru-shani-test', async (req, res) => {
+    try {
+        if (!ephemeraTestInstancePromise) {
+            ephemeraTestInstancePromise =
+                import('@astrologer/ephemera').then(
+                    async (mod) => ({
+                        eph: await mod.createEphemera(),
+                        Body: mod.Body,
+                        Ayanamsa: mod.Ayanamsa
+                    })
+                );
+        }
+
+        const { eph, Body, Ayanamsa } =
+            await ephemeraTestInstancePromise;
+
+        const date1 = new Date('2026-11-11T11:50:00Z');
+        const date2 = new Date('2026-11-12T11:50:00Z');
+
+        function getJulianDate(date) {
+            const year = date.getUTCFullYear();
+            const month = date.getUTCMonth() + 1;
+
+            const day =
+                date.getUTCDate() +
+                (
+                    date.getUTCHours() +
+                    date.getUTCMinutes() / 60 +
+                    date.getUTCSeconds() / 3600
+                ) / 24;
+
+            return eph.julianDate(year, month, day);
+        }
+
+        function getDecimalYear(date) {
+            const year = date.getUTCFullYear();
+            const start = Date.UTC(year, 0, 1);
+            const end = Date.UTC(year + 1, 0, 1);
+
+            return year +
+                (date.getTime() - start) / (end - start);
+        }
+
+        function normalize(degrees) {
+            return ((degrees % 360) + 360) % 360;
+        }
+
+        function getPlanetPosition(date, body) {
+            const jd = getJulianDate(date);
+
+            const tt = eph.utToTt(
+                jd,
+                getDecimalYear(date)
+            );
+
+            const planet = eph.position(body, jd);
+
+            const ayanamsha = eph.ayanamsa(
+                Ayanamsa.Lahiri,
+                tt
+            );
+
+            return {
+                date: date.toISOString(),
+                julianDate: jd,
+                tropicalLongitude: planet.longitude,
+                siderealLongitude: normalize(
+                    planet.longitude - ayanamsha
+                ),
+                eclipticLatitude: planet.latitude,
+                tropicalDailyMotion: planet.longitudeSpeed,
+                ayanamshaUsed: ayanamsha
+            };
+        }
+
+        function testPlanet(body) {
+            const p1 = getPlanetPosition(date1, body);
+            const p2 = getPlanetPosition(date2, body);
+
+            let movement =
+                p2.siderealLongitude -
+                p1.siderealLongitude;
+
+            if (movement > 180) movement -= 360;
+            if (movement < -180) movement += 360;
+
+            return {
+                position1: p1,
+                position2: p2,
+                dailyMotionDegrees: movement,
+                dailyMotionArcMinutes: movement * 60,
+                direction: movement > 0.000001
+                    ? 'DIRECT'
+                    : movement < -0.000001
+                        ? 'RETROGRADE'
+                        : 'STATIONARY'
+            };
+        }
+
+        return res.json({
+            success: true,
+            engine: 'Ephemera',
+            version: '0.4.1',
+            test: 'Dynamic Lahiri Guru and Shani 24-hour test',
+            reference: 'Geocentric Sidereal',
+            ayanamsha: 'Lahiri',
+            jupiter: testPlanet(Body.Jupiter),
+            saturn: testPlanet(Body.Saturn)
+        });
+
+    } catch (error) {
+        console.error(
+            'EPHEMERA TEST ERROR:',
+            error.stack || error.message
+        );
+
+        ephemeraTestInstancePromise = null;
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // Vercel serverless export
 module.exports = app;
 
