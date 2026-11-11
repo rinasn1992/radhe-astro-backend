@@ -935,6 +935,88 @@ app.get('/api/astronomy-test', (req, res) => {
     }
 });
 
+// ==========================================
+// JUPITER 24-HOUR POSITION TEST
+// Existing APIs remain unchanged
+// ==========================================
+
+app.get('/api/astronomy-jupiter-24h', (req, res) => {
+    try {
+        // Two fixed UTC timestamps, exactly 24 hours apart
+        const date1 = new Date('2026-11-11T11:50:00Z');
+        const date2 = new Date('2026-11-12T11:50:00Z');
+
+        // Lahiri ayanamsha from the November 2026
+        // Astrodienst sidereal ephemeris header
+        const ayanamsha = 24 + (13 / 60) + (55 / 3600);
+
+        function getJupiterPosition(date) {
+            const vector = Astronomy.GeoVector(
+                Astronomy.Body.Jupiter,
+                date,
+                true
+            );
+
+            const ecliptic = Astronomy.Ecliptic(vector);
+
+            const tropical = ecliptic.elon;
+
+            let sidereal = tropical - ayanamsha;
+
+            if (sidereal < 0) {
+                sidereal += 360;
+            }
+
+            return {
+                date: date.toISOString(),
+                tropicalLongitude: tropical,
+                siderealLongitude: sidereal,
+                eclipticLatitude: ecliptic.elat
+            };
+        }
+
+        const position1 = getJupiterPosition(date1);
+        const position2 = getJupiterPosition(date2);
+
+        // Calculate angular movement in 24 hours
+        let movement = (
+            position2.siderealLongitude -
+            position1.siderealLongitude
+        );
+
+        if (movement > 180) movement -= 360;
+        if (movement < -180) movement += 360;
+
+        const dailyMotionArcMinutes = movement * 60;
+
+        return res.json({
+            success: true,
+            test: 'Jupiter 24-hour movement',
+            ayanamshaUsed: ayanamsha,
+            position1,
+            position2,
+            dailyMotionDegrees: movement,
+            dailyMotionArcMinutes: dailyMotionArcMinutes,
+            direction: movement > 0
+                ? 'DIRECT'
+                : movement < 0
+                    ? 'RETROGRADE'
+                    : 'STATIONARY'
+        });
+
+    } catch (error) {
+        console.error(
+            'JUPITER 24H TEST ERROR:',
+            error.message
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // Vercel serverless export
 module.exports = app;
 
