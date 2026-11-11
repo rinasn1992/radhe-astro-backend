@@ -1713,6 +1713,289 @@ app.get('/api/guru-shani-transit-2026-2035', async (req, res) => {
     }
 });
 
+// ==================================================
+// GURU - SHANI SIDEREAL STATION API (2026-2035)
+// Dynamic Lahiri Ayanamsha
+// ==================================================
+
+app.get('/api/guru-shani-stations-2026-2035', async (req, res) => {
+    try {
+        if (!ephemeraTestInstancePromise) {
+            ephemeraTestInstancePromise =
+                import('@astrologer/ephemera').then(
+                    async (mod) => ({
+                        eph: await mod.createEphemera(),
+                        Body: mod.Body,
+                        Ayanamsa: mod.Ayanamsa
+                    })
+                );
+        }
+
+        const { eph, Body, Ayanamsa } =
+            await ephemeraTestInstancePromise;
+
+        const startDate = new Date('2026-01-01T00:00:00Z');
+        const endDate = new Date('2036-01-01T00:00:00Z');
+
+        const STEP_MS = 6 * 60 * 60 * 1000;
+        const HALF_INTERVAL_MS = 60 * 60 * 1000;
+        const ITERATIONS = 35;
+
+        const signs = [
+            'मेष', 'वृषभ', 'मिथुन', 'कर्क',
+            'सिंह', 'कन्या', 'तुला', 'वृश्चिक',
+            'धनु', 'मकर', 'कुंभ', 'मीन'
+        ];
+
+        function normalize(degrees) {
+            return ((degrees % 360) + 360) % 360;
+        }
+
+        function signedDifference(a, b) {
+            let diff = normalize(a - b);
+
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+
+            return diff;
+        }
+
+        function decimalYear(date) {
+            const year = date.getUTCFullYear();
+            const start = Date.UTC(year, 0, 1);
+            const end = Date.UTC(year + 1, 0, 1);
+
+            return year +
+                (date.getTime() - start) / (end - start);
+        }
+
+        function getPosition(date, body) {
+            const year = date.getUTCFullYear();
+            const month = date.getUTCMonth() + 1;
+
+            const day =
+                date.getUTCDate() +
+                (
+                    date.getUTCHours() * 3600 +
+                    date.getUTCMinutes() * 60 +
+                    date.getUTCSeconds() +
+                    date.getUTCMilliseconds() / 1000
+                ) / 86400;
+
+            const jd = eph.julianDate(year, month, day);
+
+            const tt = eph.utToTt(
+                jd,
+                decimalYear(date)
+            );
+
+            const planet = eph.position(body, jd);
+
+            const ayanamsha = eph.ayanamsa(
+                Ayanamsa.Lahiri,
+                tt
+            );
+
+            return {
+                longitude: normalize(
+                    planet.longitude - ayanamsha
+                ),
+                ayanamsha
+            };
+        }
+
+        // Dynamic Lahiri Sidereal daily motion.
+        // Central difference using one hour on either side.
+        function getSiderealSpeed(date, body) {
+            const before = new Date(
+                date.getTime() - HALF_INTERVAL_MS
+            );
+
+            const after = new Date(
+                date.getTime() + HALF_INTERVAL_MS
+            );
+
+            const p1 = getPosition(before, body);
+            const p2 = getPosition(after, body);
+
+            const difference = signedDifference(
+                p2.longitude,
+                p1.longitude
+            );
+
+            return difference / (2 / 24);
+        }
+
+        function getIST(date) {
+            return new Intl.DateTimeFormat('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            }).format(date);
+        }
+
+        // Refine the zero point of sidereal daily motion.
+        function refineStation(body, lowMs, highMs, lowSpeed) {
+            let low = lowMs;
+            let high = highMs;
+
+            for (let i = 0; i < ITERATIONS; i++) {
+                const middle = Math.floor(
+                    (low + high) / 2
+                );
+
+                const middleSpeed = getSiderealSpeed(
+                    new Date(middle),
+                    body
+                );
+
+                if (
+                    (lowSpeed > 0 && middleSpeed > 0) ||
+                    (lowSpeed < 0 && middleSpeed < 0)
+                ) {
+                    low = middle;
+                    lowSpeed = middleSpeed;
+                } else {
+                    high = middle;
+                }
+            }
+
+            return new Date(
+                Math.floor((low + high) / 2)
+            );
+        }
+
+        function getStations(body) {
+            const events = [];
+
+            let currentMs = startDate.getTime();
+
+            let currentSpeed = getSiderealSpeed(
+                new Date(currentMs),
+                body
+            );
+
+            while (currentMs < endDate.getTime()) {
+                const nextMs = Math.min(
+                    currentMs + STEP_MS,
+                    endDate.getTime()
+                );
+
+                const nextSpeed = getSiderealSpeed(
+                    new Date(nextMs),
+                    body
+                );
+
+                if (
+                    (currentSpeed > 0 && nextSpeed < 0) ||
+                    (currentSpeed < 0 && nextSpeed > 0)
+                ) {
+                    const stationDate = refineStation(
+                        body,
+                        currentMs,
+                        nextMs,
+                        currentSpeed
+                    );
+
+                    const position = getPosition(
+                        stationDate,
+                        body
+                    );
+
+                    const signIndex = Math.floor(
+                        position.longitude / 30
+                    );
+
+                    const degreeInSign =
+                        position.longitude - signIndex * 30;
+
+                    const isRetrogradeStart =
+                        currentSpeed > 0 && nextSpeed < 0;
+
+                    events.push({
+                        event: isRetrogradeStart
+                            ? 'RETROGRADE_START'
+                            : 'DIRECT_START',
+
+                        direction: isRetrogradeStart
+                            ? 'RETROGRADE'
+                            : 'DIRECT',
+
+                        dateUTC: stationDate.toISOString(),
+                        dateIST: getIST(stationDate),
+
+                        siderealLongitude:
+                            Number(
+                                position.longitude.toFixed(8)
+                            ),
+
+                        sign: signs[signIndex],
+
+                        degreeInSign: Number(
+                            degreeInSign.toFixed(8)
+                        ),
+
+                        ayanamsha: Number(
+                            position.ayanamsha.toFixed(8)
+                        )
+                    });
+                }
+
+                currentMs = nextMs;
+                currentSpeed = nextSpeed;
+            }
+
+            return events;
+        }
+
+        const jupiterStations = getStations(Body.Jupiter);
+        const saturnStations = getStations(Body.Saturn);
+
+        return res.json({
+            success: true,
+            engine: 'Ephemera 0.4.1',
+            calculation: 'Dynamic Lahiri Sidereal',
+            reference: 'Geocentric',
+            period: {
+                from: '2026-01-01',
+                to: '2035-12-31'
+            },
+            timeZone: 'Asia/Kolkata',
+            method: 'Sidereal central-difference speed + bisection',
+            scanIntervalHours: 6,
+            stationSpeedIntervalHours: 2,
+            planets: {
+                jupiter: {
+                    name: 'गुरु',
+                    totalStations: jupiterStations.length,
+                    events: jupiterStations
+                },
+                saturn: {
+                    name: 'शनि',
+                    totalStations: saturnStations.length,
+                    events: saturnStations
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error(
+            'GURU SHANI STATION ERROR:',
+            error.stack || error.message
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // Vercel serverless export
 module.exports = app;
 
