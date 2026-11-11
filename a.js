@@ -1193,9 +1193,20 @@ app.get('/api/ephemera-guru-shani-test', async (req, res) => {
                         : 'STATIONARY'
             };
         }
+const ephemeraMethods = {
+    ownMethods: Object.keys(eph),
+    prototypeMethods: Object.getOwnPropertyNames(
+        Object.getPrototypeOf(eph)
+    )
+};
 
+console.log(
+    'EPHEMERA AVAILABLE METHODS:',
+    JSON.stringify(ephemeraMethods)
+);
         return res.json({
             success: true,
+            availableMethods: ephemeraMethods,
             engine: 'Ephemera',
             version: '0.4.1',
             test: 'Dynamic Lahiri Guru and Shani 24-hour test',
