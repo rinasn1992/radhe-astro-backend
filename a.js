@@ -898,6 +898,43 @@ d12Error,
     }
 });
 
+// ==========================================
+// RADHE ASTRO - ASTRONOMY ENGINE TEST
+// ==========================================
+
+app.get('/api/astronomy-test', (req, res) => {
+    try {
+        const testDate = new Date();
+
+        const jupiterVector = Astronomy.GeoVector(
+            Astronomy.Body.Jupiter,
+            testDate,
+            true
+        );
+
+        const jupiterPosition = Astronomy.Ecliptic(
+            jupiterVector
+        );
+
+        return res.json({
+            success: true,
+            message: 'Astronomy Engine is working!',
+            testDate: testDate.toISOString(),
+            planet: 'Jupiter',
+            tropicalLongitude: jupiterPosition.elon,
+            eclipticLatitude: jupiterPosition.elat
+        });
+
+    } catch (error) {
+        console.error('ASTRONOMY TEST ERROR:', error.message);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // Vercel serverless export
 module.exports = app;
 
