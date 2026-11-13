@@ -1226,8 +1226,8 @@ console.log(
             ayanamsha: 'Lahiri',
             jupiter: testPlanet(Body.Jupiter),
             saturn: testPlanet(Body.Saturn)
-              meanRahu: testPlanet(Body.MeanNode),
-  trueRahu: testPlanet(Body.TrueNode)
+                        jupiter: testPlanet(Body.Jupiter),
+            saturn: testPlanet(Body.Saturn)
         });
 
     } catch (error) {
