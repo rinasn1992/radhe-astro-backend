@@ -1218,6 +1218,7 @@ console.log(
         return res.json({
             success: true,
             availableMethods: ephemeraMethods,
+            availableBodies: Body,
             engine: 'Ephemera',
             version: '0.4.1',
             test: 'Dynamic Lahiri Guru and Shani 24-hour test',
