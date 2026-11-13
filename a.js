@@ -1971,12 +1971,14 @@ const endLongitude = await getRahuDiagnostic(endDate);
             },
             timeZone: 'Asia/Kolkata',
             method: '6-hour scanning with 32-step bisection refinement; Ketu exactly opposite Rahu',
-                      diagnostics: {
-                diagnostics: {
-    start: startLongitude,
-    end: endLongitude
-},
+                      
+            diagnostics: {
+                start: startLongitude,
+                end: endLongitude
+            },
+
             planets: {
+                
                 rahu: {
                     name: 'राहु',
                     totalTransits: rahuEvents.length,
