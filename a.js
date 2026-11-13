@@ -1795,9 +1795,20 @@ app.get('/api/rahu-ketu-transit-2026-2035', async (req, res) => {
                 tt
             );
 
-            return normalize(
+                        const result = normalize(
                 planet.longitude - ayanamsha
             );
+
+            console.log("RAHU DIAGNOSTIC:", {
+                date: date.toISOString(),
+                jd,
+                tt,
+                planetLongitude: planet.longitude,
+                ayanamsha,
+                result
+            });
+
+            return result;
         }
 
         async function refineCrossing(
