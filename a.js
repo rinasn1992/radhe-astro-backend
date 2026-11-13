@@ -1113,7 +1113,7 @@ app.get('/api/ephemera-guru-shani-test', async (req, res) => {
 
         const date1 = new Date('2026-11-11T11:50:00Z');
         const date2 = new Date('2026-11-12T11:50:00Z');
-
+const birthDate = new Date('1988-03-03T18:00:00Z');
         function getJulianDate(date) {
             const year = date.getUTCFullYear();
             const month = date.getUTCMonth() + 1;
@@ -1227,7 +1227,10 @@ console.log(
             jupiter: testPlanet(Body.Jupiter),
             saturn: testPlanet(Body.Saturn),
             meanRahu: testPlanet(Body.MeanNode),
-            trueRahu: testPlanet(Body.TrueNode)
+trueRahu: testPlanet(Body.TrueNode),
+
+birthMeanRahu: getPlanetPosition(birthDate, Body.MeanNode),
+birthTrueRahu: getPlanetPosition(birthDate, Body.TrueNode)
         });
 
     } catch (error) {
