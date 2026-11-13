@@ -1761,6 +1761,21 @@ app.get('/api/rahu-ketu-transit-2026-2035', async (req, res) => {
             return ((a - b + 540) % 360) - 180;
         }
 
+function getJulianDate(date) {
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth() + 1;
+
+    const day =
+        date.getUTCDate() +
+        (
+            date.getUTCHours() +
+            date.getUTCMinutes() / 60 +
+            date.getUTCSeconds() / 3600
+        ) / 24;
+
+    return eph.julianDate(year, month, day);
+}
+        
         function getDecimalYear(date) {
             const year = date.getUTCFullYear();
             const yearStart = Date.UTC(year, 0, 1);
@@ -1785,7 +1800,7 @@ app.get('/api/rahu-ketu-transit-2026-2035', async (req, res) => {
         }
 
         async function getRahuLongitude(date) {
-            const jd = eph.julianDate(date);
+            const jd = getJulianDate(date);
             const tt = eph.utToTt(jd, getDecimalYear(date));
 
             const planet = eph.position(Body.MeanNode, jd);
@@ -1850,7 +1865,7 @@ app.get('/api/rahu-ketu-transit-2026-2035', async (req, res) => {
         }
 
 async function getRahuDiagnostic(date) {
-    const jd = eph.julianDate(date);
+    const jd = getJulianDate(date);
     const tt = eph.utToTt(jd, getDecimalYear(date));
 
     const planet = eph.position(Body.MeanNode, jd);
