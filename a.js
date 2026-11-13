@@ -1908,7 +1908,8 @@ app.get('/api/rahu-ketu-transit-2026-2035', async (req, res) => {
         }
 
         const rahuEvents = await getRahuTransitEvents();
-
+const startLongitude = await getRahuLongitude(startDate);
+const endLongitude = await getRahuLongitude(endDate);
         function oppositeSign(sign) {
             const index = signs.indexOf(sign);
             return signs[(index + 6) % 12];
@@ -1934,6 +1935,10 @@ app.get('/api/rahu-ketu-transit-2026-2035', async (req, res) => {
             },
             timeZone: 'Asia/Kolkata',
             method: '6-hour scanning with 32-step bisection refinement; Ketu exactly opposite Rahu',
+                      diagnostics: {
+                startRahuLongitude: startLongitude,
+                endRahuLongitude: endLongitude
+            },
             planets: {
                 rahu: {
                     name: 'राहु',
