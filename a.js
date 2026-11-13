@@ -1719,6 +1719,246 @@ app.get('/api/guru-shani-transit-2026-2035', async (req, res) => {
     }
 });
 
+
+// ==================================================
+// RAHU - KETU SIDEREAL TRANSIT API (2026-2035)
+// Dynamic Lahiri Ayanamsha - Mean Node
+// ==================================================
+
+app.get('/api/rahu-ketu-transit-2026-2035', async (req, res) => {
+    try {
+        if (!ephemeraTestInstancePromise) {
+            ephemeraTestInstancePromise =
+                import('@astrologer/ephemera').then(
+                    async (mod) => ({
+                        eph: await mod.createEphemera(),
+                        Body: mod.Body,
+                        Ayanamsa: mod.Ayanamsa
+                    })
+                );
+        }
+
+        const { eph, Body, Ayanamsa } =
+            await ephemeraTestInstancePromise;
+
+        const startDate = new Date('2026-01-01T00:00:00Z');
+        const endDate = new Date('2036-01-01T00:00:00Z');
+
+        const STEP_MS = 6 * 60 * 60 * 1000;
+        const BISSECTION_ITERATIONS = 32;
+
+        const signs = [
+            'मेष', 'वृषभ', 'मिथुन', 'कर्क',
+            'सिंह', 'कन्या', 'तुला', 'वृश्चिक',
+            'धनु', 'मकर', 'कुंभ', 'मीन'
+        ];
+
+        function normalize(angle) {
+            return ((angle % 360) + 360) % 360;
+        }
+
+        function signedAngleDifference(a, b) {
+            return ((a - b + 540) % 360) - 180;
+        }
+
+        function getDecimalYear(date) {
+            const year = date.getUTCFullYear();
+            const yearStart = Date.UTC(year, 0, 1);
+            const nextYearStart = Date.UTC(year + 1, 0, 1);
+
+            return year +
+                (date.getTime() - yearStart) /
+                (nextYearStart - yearStart);
+        }
+
+        function getIST(date) {
+            return date.toLocaleString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
+        async function getRahuLongitude(date) {
+            const jd = eph.julianDate(date);
+            const tt = eph.utToTt(jd, getDecimalYear(date));
+
+            const planet = eph.position(Body.MeanNode, jd);
+
+            const ayanamsha = eph.ayanamsa(
+                Ayanamsa.Lahiri,
+                tt
+            );
+
+            return normalize(
+                planet.longitude - ayanamsha
+            );
+        }
+
+        async function refineCrossing(
+            lowMs,
+            highMs,
+            targetLongitude,
+            direction
+        ) {
+            let low = lowMs;
+            let high = highMs;
+
+            for (
+                let i = 0;
+                i < BISSECTION_ITERATIONS;
+                i++
+            ) {
+                const middle = Math.floor((low + high) / 2);
+                const middleLongitude = await getRahuLongitude(
+                    new Date(middle)
+                );
+
+                const difference = signedAngleDifference(
+                    middleLongitude,
+                    targetLongitude
+                );
+
+                const crossed = direction === 'Direct'
+                    ? difference >= 0
+                    : difference <= 0;
+
+                if (crossed) {
+                    high = middle;
+                } else {
+                    low = middle;
+                }
+            }
+
+            return new Date(high);
+        }
+
+        async function getRahuTransitEvents() {
+            const events = [];
+
+            let previousTime = startDate.getTime();
+            let previousLongitude = await getRahuLongitude(
+                new Date(previousTime)
+            );
+
+            while (previousTime < endDate.getTime()) {
+                const currentTime = Math.min(
+                    previousTime + STEP_MS,
+                    endDate.getTime()
+                );
+
+                const currentLongitude = await getRahuLongitude(
+                    new Date(currentTime)
+                );
+
+                const movement = signedAngleDifference(
+                    currentLongitude,
+                    previousLongitude
+                );
+
+                const previousSign = Math.floor(
+                    previousLongitude / 30
+                );
+
+                const currentSign = Math.floor(
+                    currentLongitude / 30
+                );
+
+                if (
+                    previousSign !== currentSign &&
+                    Math.abs(movement) < 10
+                ) {
+                    const direction = movement >= 0
+                        ? 'Direct'
+                        : 'Retrograde';
+
+                    const targetLongitude = direction === 'Direct'
+                        ? normalize((previousSign + 1) * 30)
+                        : normalize(previousSign * 30);
+
+                    const crossingDate = await refineCrossing(
+                        previousTime,
+                        currentTime,
+                        targetLongitude,
+                        direction
+                    );
+
+                    const fromSign = signs[previousSign];
+                    const toSign = signs[currentSign];
+
+                    events.push({
+                        fromSign,
+                        toSign,
+                        direction,
+                        crossingUTC: crossingDate.toISOString(),
+                        crossingIST: getIST(crossingDate)
+                    });
+                }
+
+                previousTime = currentTime;
+                previousLongitude = currentLongitude;
+            }
+
+            return events;
+        }
+
+        const rahuEvents = await getRahuTransitEvents();
+
+        function oppositeSign(sign) {
+            const index = signs.indexOf(sign);
+            return signs[(index + 6) % 12];
+        }
+
+        const ketuEvents = rahuEvents.map(event => ({
+            fromSign: oppositeSign(event.fromSign),
+            toSign: oppositeSign(event.toSign),
+            direction: event.direction,
+            crossingUTC: event.crossingUTC,
+            crossingIST: event.crossingIST
+        }));
+
+        return res.json({
+            success: true,
+            engine: 'Ephemera 0.4.1',
+            calculation: 'Dynamic Lahiri Sidereal',
+            reference: 'Geocentric',
+            nodeType: 'Mean Node',
+            period: {
+                from: '2026-01-01',
+                to: '2035-12-31'
+            },
+            timeZone: 'Asia/Kolkata',
+            method: '6-hour scanning with 32-step bisection refinement; Ketu exactly opposite Rahu',
+            planets: {
+                rahu: {
+                    name: 'राहु',
+                    totalTransits: rahuEvents.length,
+                    events: rahuEvents
+                },
+                ketu: {
+                    name: 'केतु',
+                    totalTransits: ketuEvents.length,
+                    events: ketuEvents
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('RAHU KETU TRANSIT ERROR:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Rahu-Ketu transit calculation failed',
+            error: error.message
+        });
+    }
+});
+
 // ==================================================
 // GURU - SHANI SIDEREAL STATION API (2026-2035)
 // Dynamic Lahiri Ayanamsha
