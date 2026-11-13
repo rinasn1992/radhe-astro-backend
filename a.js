@@ -1215,7 +1215,7 @@ console.log(
     'EPHEMERA AVAILABLE METHODS:',
     JSON.stringify(ephemeraMethods)
 );
-        return res.json({
+                return res.json({
             success: true,
             availableMethods: ephemeraMethods,
             availableBodies: Body,
@@ -1225,9 +1225,9 @@ console.log(
             reference: 'Geocentric Sidereal',
             ayanamsha: 'Lahiri',
             jupiter: testPlanet(Body.Jupiter),
-            saturn: testPlanet(Body.Saturn)
-                        jupiter: testPlanet(Body.Jupiter),
-            saturn: testPlanet(Body.Saturn)
+            saturn: testPlanet(Body.Saturn),
+            meanRahu: testPlanet(Body.MeanNode),
+            trueRahu: testPlanet(Body.TrueNode)
         });
 
     } catch (error) {
