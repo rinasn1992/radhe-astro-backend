@@ -1825,7 +1825,61 @@ function getJulianDate(date) {
 
             return result;
         }
+async function getRahuPositionDetails(date) {
+    const signs = [
+        'मेष', 'वृषभ', 'मिथुन', 'कर्क',
+        'सिंह', 'कन्या', 'तुला', 'वृश्चिक',
+        'धनु', 'मकर', 'कुंभ', 'मीन'
+    ];
 
+    const nakshatras = [
+        'अश्विनी', 'भरणी', 'कृत्तिका', 'रोहिणी',
+        'मृगशिरा', 'आर्द्रा', 'पुनर्वसु', 'पुष्य',
+        'आश्लेषा', 'मघा', 'पूर्वा फाल्गुनी',
+        'उत्तरा फाल्गुनी', 'हस्त', 'चित्रा',
+        'स्वाती', 'विशाखा', 'अनुराधा', 'ज्येष्ठा',
+        'मूल', 'पूर्वाषाढ़ा', 'उत्तराषाढ़ा',
+        'श्रवण', 'धनिष्ठा', 'शतभिषा',
+        'पूर्वा भाद्रपद', 'उत्तरा भाद्रपद', 'रेवती'
+    ];
+
+    function makeDetails(longitude) {
+        const signIndex = Math.floor(longitude / 30);
+        const degreeInSign = longitude % 30;
+
+        const degree = Math.floor(degreeInSign);
+        const minuteValue = (degreeInSign - degree) * 60;
+        const minutes = Math.floor(minuteValue);
+        const seconds = (minuteValue - minutes) * 60;
+
+        const nakshatraSpan = 360 / 27;
+        const nakshatraIndex = Math.floor(longitude / nakshatraSpan);
+        const pada = Math.floor(
+            (longitude % nakshatraSpan) / (nakshatraSpan / 4)
+        ) + 1;
+
+        return {
+            longitude: Number(longitude.toFixed(8)),
+            sign: signs[signIndex],
+            signNumber: signIndex + 1,
+            degree,
+            minutes,
+            seconds: Number(seconds.toFixed(2)),
+            nakshatra: nakshatras[nakshatraIndex],
+            nakshatraPada: pada,
+            motion: "Retrograde"
+        };
+    }
+
+    const rahuLongitude = await getRahuLongitude(date);
+    const ketuLongitude = (rahuLongitude + 180) % 360;
+
+    return {
+        dateUTC: date.toISOString(),
+        rahu: makeDetails(rahuLongitude),
+        ketu: makeDetails(ketuLongitude)
+    };
+}
         async function refineCrossing(
             lowMs,
             highMs,
@@ -1986,7 +2040,7 @@ const endLongitude = await getRahuDiagnostic(endDate);
             },
             timeZone: 'Asia/Kolkata',
             method: '6-hour scanning with 32-step bisection refinement; Ketu exactly opposite Rahu',
-                      
+             currentPosition: await getRahuPositionDetails(new Date()),         
             diagnostics: {
                 start: startLongitude,
                 end: endLongitude
