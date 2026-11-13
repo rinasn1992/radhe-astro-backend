@@ -1849,6 +1849,31 @@ app.get('/api/rahu-ketu-transit-2026-2035', async (req, res) => {
             return new Date(high);
         }
 
+async function getRahuDiagnostic(date) {
+    const jd = eph.julianDate(date);
+    const tt = eph.utToTt(jd, getDecimalYear(date));
+
+    const planet = eph.position(Body.MeanNode, jd);
+
+    const ayanamsha = eph.ayanamsa(
+        Ayanamsa.Lahiri,
+        tt
+    );
+
+    const result = normalize(
+        planet.longitude - ayanamsha
+    );
+
+    return {
+        date: date.toISOString(),
+        jd,
+        tt,
+        planetLongitude: planet.longitude,
+        ayanamsha,
+        result
+    };
+}
+        
         async function getRahuTransitEvents() {
             const events = [];
 
@@ -1919,8 +1944,8 @@ app.get('/api/rahu-ketu-transit-2026-2035', async (req, res) => {
         }
 
         const rahuEvents = await getRahuTransitEvents();
-const startLongitude = await getRahuLongitude(startDate);
-const endLongitude = await getRahuLongitude(endDate);
+const startLongitude = await getRahuDiagnostic(startDate);
+const endLongitude = await getRahuDiagnostic(endDate);
         function oppositeSign(sign) {
             const index = signs.indexOf(sign);
             return signs[(index + 6) % 12];
@@ -1947,9 +1972,10 @@ const endLongitude = await getRahuLongitude(endDate);
             timeZone: 'Asia/Kolkata',
             method: '6-hour scanning with 32-step bisection refinement; Ketu exactly opposite Rahu',
                       diagnostics: {
-                startRahuLongitude: startLongitude,
-                endRahuLongitude: endLongitude
-            },
+                diagnostics: {
+    start: startLongitude,
+    end: endLongitude
+},
             planets: {
                 rahu: {
                     name: 'राहु',
