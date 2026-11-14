@@ -2229,182 +2229,222 @@ app.get('/api/guru-shani-stations-2026-2035', async (req, res) => {
             );
         }
 
-        function getStations(body) {
-            const events = [];
+        
+function getStations(body) {
+    const events = [];
 
-            let currentMs = startDate.getTime();
+    let currentMs = startDate.getTime();
 
-            let currentSpeed = getSiderealSpeed(
-                new Date(currentMs),
-                body
-            );
+    let currentSpeed = getSiderealSpeed(
+        new Date(currentMs),
+        body
+    );
 
-            while (currentMs < endDate.getTime()) {
-                const nextMs = Math.min(
-                    currentMs + STEP_MS,
-                    endDate.getTime()
+    // Keep the last non-zero speed sample.
+    let previousNonZeroMs = currentMs;
+    let previousNonZeroSpeed = currentSpeed;
+
+    while (currentMs < endDate.getTime()) {
+
+        const nextMs = Math.min(
+            currentMs + STEP_MS,
+            endDate.getTime()
+        );
+
+        const nextSpeed = getSiderealSpeed(
+            new Date(nextMs),
+            body
+        );
+
+        // Ignore exact zero samples until the next
+        // non-zero sample confirms the direction.
+        if (nextSpeed !== 0) {
+
+            const directionChanged =
+                previousNonZeroSpeed > 0
+                    ? nextSpeed < 0
+                    : nextSpeed > 0;
+
+            if (directionChanged) {
+
+                const stationDate = refineStation(
+                    body,
+                    previousNonZeroMs,
+                    nextMs,
+                    previousNonZeroSpeed
                 );
 
-                const nextSpeed = getSiderealSpeed(
-                    new Date(nextMs),
+                const position = getPosition(
+                    stationDate,
                     body
                 );
 
-                if (
-                    (currentSpeed > 0 && nextSpeed < 0) ||
-                    (currentSpeed < 0 && nextSpeed > 0)
-                ) {
-                    const stationDate = refineStation(
-                        body,
-                        currentMs,
-                        nextMs,
-                        currentSpeed
-                    );
+                const signIndex = Math.floor(
+                    position.longitude / 30
+                );
 
-                    const position = getPosition(
-                        stationDate,
-                        body
-                    );
+                const degreeInSign =
+                    position.longitude -
+                    signIndex * 30;
 
-                    const signIndex = Math.floor(
-                        position.longitude / 30
-                    );
+                const isRetrogradeStart =
+                    previousNonZeroSpeed > 0 &&
+                    nextSpeed < 0;
 
-                    const degreeInSign =
-                        position.longitude - signIndex * 30;
+                events.push({
+                    event: isRetrogradeStart
+                        ? 'RETROGRADE_START'
+                        : 'DIRECT_START',
 
-                    const isRetrogradeStart =
-                        currentSpeed > 0 && nextSpeed < 0;
+                    direction: isRetrogradeStart
+                        ? 'RETROGRADE'
+                        : 'DIRECT',
 
-                    events.push({
-                        event: isRetrogradeStart
-                            ? 'RETROGRADE_START'
-                            : 'DIRECT_START',
+                    dateUTC: stationDate.toISOString(),
 
-                        direction: isRetrogradeStart
-                            ? 'RETROGRADE'
-                            : 'DIRECT',
+                    dateIST: getIST(stationDate),
 
-                        dateUTC: stationDate.toISOString(),
-                        dateIST: getIST(stationDate),
+                    siderealLongitude: Number(
+                        position.longitude.toFixed(8)
+                    ),
 
-                        siderealLongitude:
-                            Number(
-                                position.longitude.toFixed(8)
-                            ),
+                    sign: signs[signIndex],
 
-                        sign: signs[signIndex],
+                    degreeInSign: Number(
+                        degreeInSign.toFixed(8)
+                    ),
 
-                        degreeInSign: Number(
-                            degreeInSign.toFixed(8)
-                        ),
-
-                        ayanamsha: Number(
-                            position.ayanamsha.toFixed(8)
-                        )
-                    });
-                }
-
-                currentMs = nextMs;
-                currentSpeed = nextSpeed;
+                    ayanamsha: Number(
+                        position.ayanamsha.toFixed(8)
+                    )
+                });
             }
 
-            return events;
+            previousNonZeroMs = nextMs;
+            previousNonZeroSpeed = nextSpeed;
         }
 
+        currentMs = nextMs;
+        currentSpeed = nextSpeed;
+    }
+
+    return events;
+}
+        
         const jupiterStations = getStations(Body.Jupiter);
         const saturnStations = getStations(Body.Saturn);
 
         // Build complete retrograde periods from station events.
-        function buildRetrogradePeriods(events) {
-            const periods = [];
-            let retrogradeStart = null;
+                      
+function buildRetrogradePeriods(events, initialSpeed) {
+    const periods = [];
+    let retrogradeStart = null;
+if (initialSpeed < 0) {
+    retrogradeStart = {
+        event: 'RETROGRADE_START',
+        dateUTC: null,
+        dateIST: null,
+        sign: null,
+        degreeInSign: null,
+        siderealLongitude: null
+    };
+}
+    for (const event of events) {
 
-            for (const event of events) {
+        if (event.event === 'RETROGRADE_START') {
 
-                if (event.event === 'RETROGRADE_START') {
-                    retrogradeStart = event;
-                }
-
-                else if (
-                    event.event === 'DIRECT_START' &&
-                    retrogradeStart
-                ) {
-                    const startTime = new Date(
-                        retrogradeStart.dateUTC
-                    ).getTime();
-
-                    const endTime = new Date(
-                        event.dateUTC
-                    ).getTime();
-
-                    const durationMs = endTime - startTime;
-
-                    periods.push({
-                        status: 'COMPLETED',
-
-                        startUTC: retrogradeStart.dateUTC,
-                        startIST: retrogradeStart.dateIST,
-                        startSign: retrogradeStart.sign,
-                        startDegreeInSign:
-                            retrogradeStart.degreeInSign,
-                        startLongitude:
-                            retrogradeStart.siderealLongitude,
-
-                        endUTC: event.dateUTC,
-                        endIST: event.dateIST,
-                        endSign: event.sign,
-                        endDegreeInSign:
-                            event.degreeInSign,
-                        endLongitude:
-                            event.siderealLongitude,
-
-                        durationMilliseconds: durationMs,
-                        durationHours: Number(
-                            (durationMs / 3600000).toFixed(3)
-                        ),
-                        durationDays: Number(
-                            (durationMs / 86400000).toFixed(6)
-                        )
-                    });
-
-                    retrogradeStart = null;
-                }
+            // Prevent overwriting an unfinished period.
+            if (!retrogradeStart) {
+                retrogradeStart = event;
             }
-
-            // If retrograde continues beyond the report period.
-            if (retrogradeStart) {
-                periods.push({
-                    status: 'ONGOING_AT_RANGE_END',
-
-                    startUTC: retrogradeStart.dateUTC,
-                    startIST: retrogradeStart.dateIST,
-                    startSign: retrogradeStart.sign,
-                    startDegreeInSign:
-                        retrogradeStart.degreeInSign,
-                    startLongitude:
-                        retrogradeStart.siderealLongitude,
-
-                    endUTC: null,
-                    endIST: null,
-                    endSign: null,
-                    endDegreeInSign: null,
-                    endLongitude: null,
-
-                    durationMilliseconds: null,
-                    durationHours: null,
-                    durationDays: null
-                });
-            }
-
-            return periods;
         }
 
-        const jupiterRetrogradePeriods =
-            buildRetrogradePeriods(jupiterStations);
+        else if (
+            event.event === 'DIRECT_START' &&
+            retrogradeStart
+        ) {
+            const startTime = new Date(
+                retrogradeStart.dateUTC
+            ).getTime();
 
-        const saturnRetrogradePeriods =
-            buildRetrogradePeriods(saturnStations);
+            const endTime = new Date(
+                event.dateUTC
+            ).getTime();
+
+            const durationMs = endTime - startTime;
+
+            periods.push({
+                status: 'COMPLETED',
+
+                startUTC: retrogradeStart.dateUTC,
+                startIST: retrogradeStart.dateIST,
+                startSign: retrogradeStart.sign,
+                startDegreeInSign:
+                    retrogradeStart.degreeInSign,
+                startLongitude:
+                    retrogradeStart.siderealLongitude,
+
+                endUTC: event.dateUTC,
+                endIST: event.dateIST,
+                endSign: event.sign,
+                endDegreeInSign:
+                    event.degreeInSign,
+                endLongitude:
+                    event.siderealLongitude,
+
+                durationMilliseconds: durationMs,
+
+                durationHours: Number(
+                    (durationMs / 3600000).toFixed(3)
+                ),
+
+                durationDays: Number(
+                    (durationMs / 86400000).toFixed(6)
+                )
+            });
+
+            retrogradeStart = null;
+        }
+    }
+
+    // Preserve an unfinished retrograde period
+    // at the end of the calculation range.
+    if (retrogradeStart) {
+        periods.push({
+            status: 'ONGOING',
+
+            startUTC: retrogradeStart.dateUTC,
+            startIST: retrogradeStart.dateIST,
+            startSign: retrogradeStart.sign,
+            startDegreeInSign:
+                retrogradeStart.degreeInSign,
+            startLongitude:
+                retrogradeStart.siderealLongitude,
+
+            endUTC: null,
+            endIST: null,
+
+            durationMilliseconds: null,
+            durationHours: null,
+            durationDays: null
+        });
+    }
+
+    return periods;
+}
+        
+
+        const jupiterRetrogradePeriods =
+    buildRetrogradePeriods(
+        jupiterStations,
+        getSiderealSpeed(startDate, Body.Jupiter)
+    );
+
+const saturnRetrogradePeriods =
+    buildRetrogradePeriods(
+        saturnStations,
+        getSiderealSpeed(startDate, Body.Saturn)
+    );
         
         return res.json({
             success: true,
