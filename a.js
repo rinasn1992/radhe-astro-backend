@@ -2336,24 +2336,27 @@ function getStations(body) {
 
         // Build complete retrograde periods from station events.
                       
+
 function buildRetrogradePeriods(events, initialSpeed) {
     const periods = [];
     let retrogradeStart = null;
-if (initialSpeed < 0) {
-    retrogradeStart = {
-        event: 'RETROGRADE_START',
-        dateUTC: null,
-        dateIST: null,
-        sign: null,
-        degreeInSign: null,
-        siderealLongitude: null
-    };
-}
+
+    // Planet was already retrograde at the beginning
+    // of the calculation range.
+    if (initialSpeed < 0) {
+        retrogradeStart = {
+            dateUTC: null,
+            dateIST: null,
+            sign: null,
+            degreeInSign: null,
+            siderealLongitude: null
+        };
+    }
+
     for (const event of events) {
 
         if (event.event === 'RETROGRADE_START') {
 
-            // Prevent overwriting an unfinished period.
             if (!retrogradeStart) {
                 retrogradeStart = event;
             }
@@ -2363,55 +2366,83 @@ if (initialSpeed < 0) {
             event.event === 'DIRECT_START' &&
             retrogradeStart
         ) {
-            const startTime = new Date(
-                retrogradeStart.dateUTC
-            ).getTime();
 
-            const endTime = new Date(
-                event.dateUTC
-            ).getTime();
+            // Retrograde began before calculation range.
+            if (retrogradeStart.dateUTC === null) {
 
-            const durationMs = endTime - startTime;
+                periods.push({
+                    status: 'STARTED_BEFORE_RANGE',
 
-            periods.push({
-                status: 'COMPLETED',
+                    startUTC: null,
+                    startIST: null,
+                    startSign: null,
+                    startDegreeInSign: null,
+                    startLongitude: null,
 
-                startUTC: retrogradeStart.dateUTC,
-                startIST: retrogradeStart.dateIST,
-                startSign: retrogradeStart.sign,
-                startDegreeInSign:
-                    retrogradeStart.degreeInSign,
-                startLongitude:
-                    retrogradeStart.siderealLongitude,
+                    endUTC: event.dateUTC,
+                    endIST: event.dateIST,
+                    endSign: event.sign,
+                    endDegreeInSign: event.degreeInSign,
+                    endLongitude: event.siderealLongitude,
 
-                endUTC: event.dateUTC,
-                endIST: event.dateIST,
-                endSign: event.sign,
-                endDegreeInSign:
-                    event.degreeInSign,
-                endLongitude:
-                    event.siderealLongitude,
+                    durationMilliseconds: null,
+                    durationHours: null,
+                    durationDays: null
+                });
+            }
 
-                durationMilliseconds: durationMs,
+            else {
 
-                durationHours: Number(
-                    (durationMs / 3600000).toFixed(3)
-                ),
+                const startTime = new Date(
+                    retrogradeStart.dateUTC
+                ).getTime();
 
-                durationDays: Number(
-                    (durationMs / 86400000).toFixed(6)
-                )
-            });
+                const endTime = new Date(
+                    event.dateUTC
+                ).getTime();
+
+                const durationMs = endTime - startTime;
+
+                periods.push({
+                    status: 'COMPLETED',
+
+                    startUTC: retrogradeStart.dateUTC,
+                    startIST: retrogradeStart.dateIST,
+                    startSign: retrogradeStart.sign,
+                    startDegreeInSign:
+                        retrogradeStart.degreeInSign,
+                    startLongitude:
+                        retrogradeStart.siderealLongitude,
+
+                    endUTC: event.dateUTC,
+                    endIST: event.dateIST,
+                    endSign: event.sign,
+                    endDegreeInSign: event.degreeInSign,
+                    endLongitude: event.siderealLongitude,
+
+                    durationMilliseconds: durationMs,
+
+                    durationHours: Number(
+                        (durationMs / 3600000).toFixed(3)
+                    ),
+
+                    durationDays: Number(
+                        (durationMs / 86400000).toFixed(6)
+                    )
+                });
+            }
 
             retrogradeStart = null;
         }
     }
 
-    // Preserve an unfinished retrograde period
-    // at the end of the calculation range.
+    // Retrograde continues beyond the calculation range.
     if (retrogradeStart) {
+
         periods.push({
-            status: 'ONGOING',
+            status: retrogradeStart.dateUTC === null
+                ? 'ONGOING_FROM_BEFORE_RANGE'
+                : 'ONGOING',
 
             startUTC: retrogradeStart.dateUTC,
             startIST: retrogradeStart.dateIST,
@@ -2432,6 +2463,7 @@ if (initialSpeed < 0) {
 
     return periods;
 }
+        
         
 
         const jupiterRetrogradePeriods =
