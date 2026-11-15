@@ -175,10 +175,156 @@ function validateD1Positions(d1Details) {
     };
 }
 
+const DEBILITATION_POINTS = {
+    Sun: 190,
+    Moon: 213,
+    Mars: 118,
+    Mercury: 345,
+    Jupiter: 275,
+    Venus: 177,
+    Saturn: 20
+};
+
+const PLANET_GENDER = {
+    Sun: 'male',
+    Moon: 'female',
+    Mars: 'male',
+    Mercury: 'neutral',
+    Jupiter: 'male',
+    Venus: 'female',
+    Saturn: 'neutral'
+};
+
+// BPHS: Uchcha Bala
+function calculateUchchaBala(planet, longitude) {
+    if (!(planet in DEBILITATION_POINTS)) {
+        throw new Error('Invalid planet for Uchcha Bala.');
+    }
+
+    const pos = normalizeDegrees(longitude);
+    const deb = DEBILITATION_POINTS[planet];
+
+    let distance = normalizeDegrees(pos - deb);
+
+    if (distance > 180) {
+        distance = 360 - distance;
+    }
+
+    return Number((distance / 3).toFixed(4));
+}
+
+// BPHS: Navamsa sign from sidereal longitude
+function getNavamsaSignIndex(longitude) {
+    const pos = normalizeDegrees(longitude);
+    const signIndex = Math.floor(pos / 30);
+    const degreeInSign = pos % 30;
+
+    const navamsaPart = Math.floor(
+        degreeInSign / (30 / 9)
+    );
+
+    return (signIndex * 9 + navamsaPart) % 12;
+}
+
+// BPHS: Ojhayugma Rasi-Amsha Bala
+function calculateOjhayugmaBala(planet, longitude) {
+    const pos = normalizeDegrees(longitude);
+    const signIndex = Math.floor(pos / 30);
+    const navamsaSignIndex = getNavamsaSignIndex(pos);
+
+    const rasiIsOdd = signIndex % 2 === 0;
+    const navamsaIsOdd = navamsaSignIndex % 2 === 0;
+
+    const gender = PLANET_GENDER[planet];
+
+    const requiredOdd = gender !== 'female';
+
+    let bala = 0;
+
+    if (rasiIsOdd === requiredOdd) {
+        bala += 15;
+    }
+
+    if (navamsaIsOdd === requiredOdd) {
+        bala += 15;
+    }
+
+    return {
+        rasiBala: rasiIsOdd === requiredOdd ? 15 : 0,
+        navamsaBala: navamsaIsOdd === requiredOdd ? 15 : 0,
+        total: bala,
+        navamsaSignIndex
+    };
+}
+
+// BPHS: Kendradi Bala
+function calculateKendradiBala(houseNumber) {
+    const house = Number(houseNumber);
+
+    if (!Number.isInteger(house) || house < 1 || house > 12) {
+        throw new Error('Valid bhava number (1-12) required.');
+    }
+
+    if ([1, 4, 7, 10].includes(house)) return 60;
+    if ([2, 5, 8, 11].includes(house)) return 30;
+
+    return 15;
+}
+
+// BPHS: Drekkana Bala
+function calculateDrekkanaBala(planet, longitude) {
+    const pos = normalizeDegrees(longitude);
+    const degreeInSign = pos % 30;
+
+    const drekkana = Math.floor(degreeInSign / 10) + 1;
+    const gender = PLANET_GENDER[planet];
+
+    const requiredDrekkana = {
+        male: 1,
+        female: 2,
+        neutral: 3
+    }[gender];
+
+    return {
+        drekkana,
+        bala: drekkana === requiredDrekkana ? 15 : 0
+    };
+}
+
+// Four verified components; Saptavargaja is pending.
+function calculatePartialSthanaBala(planet, longitude, houseNumber) {
+    const uchcha = calculateUchchaBala(planet, longitude);
+    const ojhayugma = calculateOjhayugmaBala(planet, longitude);
+    const kendradi = calculateKendradiBala(houseNumber);
+    const drekkana = calculateDrekkanaBala(planet, longitude);
+
+    const partialTotal =
+        uchcha +
+        ojhayugma.total +
+        kendradi +
+        drekkana.bala;
+
+    return {
+        planet,
+        uchchaBala: uchcha,
+        ojhayugmaBala: ojhayugma,
+        kendradiBala: kendradi,
+        drekkanaBala: drekkana,
+        partialTotalVirupa: Number(partialTotal.toFixed(4)),
+        status: 'INCOMPLETE_SAPTAVARGAJA_PENDING'
+    };
+}
+
 module.exports = {
     PLANETS,
     SIGNS,
     normalizeDegrees,
     getSignDetails,
-    validateD1Positions
+    validateD1Positions,
+    calculateUchchaBala,
+    getNavamsaSignIndex,
+    calculateOjhayugmaBala,
+    calculateKendradiBala,
+    calculateDrekkanaBala,
+    calculatePartialSthanaBala
 };
