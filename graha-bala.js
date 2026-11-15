@@ -315,6 +315,314 @@ function calculatePartialSthanaBala(planet, longitude, houseNumber) {
     };
 }
 
+// ==========================================
+// SAPTAVARGAJA BALA - BPHS CHAPTER 27
+// ==========================================
+
+const VARGA_SIGN_LORDS = [
+    'Mars', 'Venus', 'Mercury', 'Moon',
+    'Sun', 'Mercury', 'Venus', 'Mars',
+    'Jupiter', 'Saturn', 'Saturn', 'Jupiter'
+];
+
+const OWN_SIGNS = {
+    Sun: [4],
+    Moon: [3],
+    Mars: [0, 7],
+    Mercury: [2, 5],
+    Jupiter: [8, 11],
+    Venus: [1, 6],
+    Saturn: [9, 10]
+};
+
+const MOOLATRIKONA = {
+    Sun: { sign: 4, start: 0, end: 20 },
+    Moon: { sign: 1, start: 3, end: 30 },
+    Mars: { sign: 0, start: 0, end: 12 },
+    Mercury: { sign: 5, start: 15, end: 20 },
+    Jupiter: { sign: 8, start: 0, end: 10 },
+    Venus: { sign: 6, start: 0, end: 15 },
+    Saturn: { sign: 10, start: 0, end: 20 }
+};
+
+const NATURAL_RELATIONSHIPS = {
+    Sun: {
+        friend: ['Moon', 'Mars', 'Jupiter'],
+        neutral: ['Mercury'],
+        enemy: ['Venus', 'Saturn']
+    },
+    Moon: {
+        friend: ['Sun', 'Mercury'],
+        neutral: ['Mars', 'Jupiter', 'Venus', 'Saturn'],
+        enemy: []
+    },
+    Mars: {
+        friend: ['Sun', 'Moon', 'Jupiter'],
+        neutral: ['Venus', 'Saturn'],
+        enemy: ['Mercury']
+    },
+    Mercury: {
+        friend: ['Sun', 'Venus'],
+        neutral: ['Mars', 'Jupiter', 'Saturn'],
+        enemy: ['Moon']
+    },
+    Jupiter: {
+        friend: ['Sun', 'Moon', 'Mars'],
+        neutral: ['Saturn'],
+        enemy: ['Mercury', 'Venus']
+    },
+    Venus: {
+        friend: ['Mercury', 'Saturn'],
+        neutral: ['Mars', 'Jupiter'],
+        enemy: ['Sun', 'Moon']
+    },
+    Saturn: {
+        friend: ['Mercury', 'Venus'],
+        neutral: ['Jupiter'],
+        enemy: ['Sun', 'Moon', 'Mars']
+    }
+};
+
+const SAPTAVARGA_POINTS = {
+    adhimitra: 20,
+    mitra: 15,
+    sama: 10,
+    shatru: 4,
+    adhishatru: 2
+};
+
+// Seven divisional sign positions from D1 longitude
+function calculateSevenVargaSigns(longitude) {
+    const pos = normalizeDegrees(longitude);
+    const sign = Math.floor(pos / 30);
+    const degree = pos % 30;
+
+    const part3 = Math.min(2, Math.floor(degree / 10));
+    const part7 = Math.min(6, Math.floor(degree / (30 / 7)));
+    const part9 = Math.min(8, Math.floor(degree / (30 / 9)));
+    const part12 = Math.min(11, Math.floor(degree / 2.5));
+
+    // D2 Hora
+    const hora = sign % 2 === 0
+        ? (degree < 15 ? 4 : 3)
+        : (degree < 15 ? 3 : 4);
+
+    // D3 Drekkana
+    const drekkana = (sign + part3 * 4) % 12;
+
+    // D7 Saptamsa
+    const saptamsa = (
+        sign + (sign % 2 === 0 ? 0 : 6) + part7
+    ) % 12;
+
+    // D9 Navamsa
+    const modalityOffset = sign % 3 === 0
+        ? 0
+        : sign % 3 === 1 ? 8 : 4;
+
+    const navamsa = (
+        sign + modalityOffset + part9
+    ) % 12;
+
+    // D12 Dvadasamsa
+    const dvadasamsa = (sign + part12) % 12;
+
+    // D30 Trimsamsa
+    let trimsamsa;
+
+    if (sign % 2 === 0) {
+        if (degree < 5) trimsamsa = 0;
+        else if (degree < 10) trimsamsa = 10;
+        else if (degree < 18) trimsamsa = 8;
+        else if (degree < 25) trimsamsa = 2;
+        else trimsamsa = 6;
+    } else {
+        if (degree < 5) trimsamsa = 1;
+        else if (degree < 12) trimsamsa = 5;
+        else if (degree < 20) trimsamsa = 11;
+        else if (degree < 25) trimsamsa = 9;
+        else trimsamsa = 7;
+    }
+
+    return {
+        D1: sign,
+        D2: hora,
+        D3: drekkana,
+        D7: saptamsa,
+        D9: navamsa,
+        D12: dvadasamsa,
+        D30: trimsamsa
+    };
+}
+
+// Natural relationship
+function getNaturalRelationship(planet, otherPlanet) {
+    const relation = NATURAL_RELATIONSHIPS[planet];
+
+    if (relation.friend.includes(otherPlanet)) return 'friend';
+    if (relation.enemy.includes(otherPlanet)) return 'enemy';
+
+    return 'neutral';
+}
+
+// Temporary relationship from D1 Rasi chart
+function getTemporaryRelationship(
+    planetSign,
+    otherPlanetSign
+) {
+    const distance = (
+        otherPlanetSign - planetSign + 12
+    ) % 12;
+
+    return [1, 2, 3, 9, 10, 11].includes(distance)
+        ? 'friend'
+        : 'enemy';
+}
+
+// Panchadha Maitri
+function getCompoundRelationship(natural, temporary) {
+    if (natural === 'friend' && temporary === 'friend') {
+        return 'adhimitra';
+    }
+
+    if (natural === 'enemy' && temporary === 'enemy') {
+        return 'adhishatru';
+    }
+
+    if (natural === 'neutral' && temporary === 'friend') {
+        return 'mitra';
+    }
+
+    if (natural === 'neutral' && temporary === 'enemy') {
+        return 'shatru';
+    }
+
+    if (
+        (natural === 'friend' && temporary === 'enemy') ||
+        (natural === 'enemy' && temporary === 'friend')
+    ) {
+        return 'sama';
+    }
+
+    throw new Error('Invalid planetary relationship.');
+}
+
+// Dignity score for one varga
+function calculateVargaDignity(
+    planet,
+    vargaSign,
+    d1Sign,
+    d1Degree,
+    vargaName,
+    allD1Signs
+) {
+    const mt = MOOLATRIKONA[planet];
+
+    // D1 Moolatrikona uses its exact degree range.
+    // Other vargas use the corresponding Moolatrikona sign.
+    if (
+        vargaSign === mt.sign &&
+        (
+            vargaName !== 'D1' ||
+            (
+                d1Degree >= mt.start &&
+                d1Degree < mt.end
+            )
+        )
+    ) {
+        return { dignity: 'moolatrikona', points: 45 };
+    }
+
+    if (OWN_SIGNS[planet].includes(vargaSign)) {
+        return { dignity: 'own', points: 30 };
+    }
+
+    const signLord = VARGA_SIGN_LORDS[vargaSign];
+
+    const natural = getNaturalRelationship(
+        planet,
+        signLord
+    );
+
+    const temporary = getTemporaryRelationship(
+        allD1Signs[planet],
+        allD1Signs[signLord]
+    );
+
+    const compound = getCompoundRelationship(
+        natural,
+        temporary
+    );
+
+    return {
+        dignity: compound,
+        points: SAPTAVARGA_POINTS[compound],
+        signLord,
+        naturalRelationship: natural,
+        temporaryRelationship: temporary
+    };
+}
+
+// Complete Saptavargaja Bala for one planet
+function calculateSaptavargajaBala(planet, d1Details) {
+    if (!PLANETS.includes(planet)) {
+        throw new Error('Invalid planet for Saptavargaja Bala.');
+    }
+
+    const allD1Signs = {};
+    const allLongitudes = {};
+
+    for (const name of PLANETS) {
+        const longitude = findPlanetLongitude(d1Details, name);
+
+        if (longitude === null) {
+            throw new Error(
+                'Missing D1 longitude for ' + name
+            );
+        }
+
+        allLongitudes[name] = longitude;
+        allD1Signs[name] = Math.floor(
+            normalizeDegrees(longitude) / 30
+        );
+    }
+
+    const longitude = allLongitudes[planet];
+    const degree = normalizeDegrees(longitude) % 30;
+
+    const vargas = calculateSevenVargaSigns(longitude);
+
+    const details = {};
+    let total = 0;
+
+    for (const name of Object.keys(vargas)) {
+        const result = calculateVargaDignity(
+            planet,
+            vargas[name],
+            allD1Signs[planet],
+            degree,
+            name,
+            allD1Signs
+        );
+
+        details[name] = {
+            signIndex: vargas[name],
+            sign: SIGNS[vargas[name]],
+            ...result
+        };
+
+        total += result.points;
+    }
+
+    return {
+        planet,
+        vargas: details,
+        totalVirupa: Number(total.toFixed(4)),
+        totalRupa: Number((total / 60).toFixed(4)),
+        method: 'BPHS Chapter 27 - Saptavargaja Bala'
+    };
+}
+
 module.exports = {
     PLANETS,
     SIGNS,
@@ -327,4 +635,6 @@ module.exports = {
     calculateKendradiBala,
     calculateDrekkanaBala,
     calculatePartialSthanaBala
+    calculateSevenVargaSigns,
+calculateSaptavargajaBala
 };
