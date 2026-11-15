@@ -853,11 +853,115 @@ async function fetchRadheDivisionalChart(chartCode) {
 }
 
 
-// D-5 Panchamsha
+
+// D-5 Panchamsha — Standard Parashari Calculation
 const {
-    details: d5Details,
+    details: d5ApiDetails,
     error: d5Error
 } = await fetchRadheDivisionalChart('D5');
+
+const d5SignNames = [
+    'Aries', 'Taurus', 'Gemini', 'Cancer',
+    'Leo', 'Virgo', 'Libra', 'Scorpio',
+    'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
+];
+
+// Standard Parashari Panchamsha sign sequence
+function getD5SignIndex(longitude) {
+    const degree = ((Number(longitude) % 360) + 360) % 360;
+
+    const natalSignIndex = Math.floor(degree / 30);
+    const degreeInSign = degree % 30;
+
+    const part = Math.min(4, Math.floor(degreeInSign / 6));
+
+    const oddSignSequence = [0, 4, 8, 2, 6];
+    const evenSignSequence = [6, 10, 2, 8, 0];
+
+    const sequence = natalSignIndex % 2 === 0
+        ? oddSignSequence
+        : evenSignSequence;
+
+    return sequence[part];
+}
+
+let d5Details = d5ApiDetails;
+
+try {
+    const ascendantDegree = Number(
+        d1Details?.ascendant?.fullDegree
+    );
+
+    const natalPlanets = d1Details?.planets || {};
+
+    if (
+        Number.isFinite(ascendantDegree) &&
+        Object.keys(natalPlanets).length > 0
+    ) {
+        const d5AscendantIndex =
+            getD5SignIndex(ascendantDegree);
+
+        const d5AscendantSign =
+            d5SignNames[d5AscendantIndex];
+
+        const d5Placements = {};
+
+        for (const [planetName, planetData] of
+            Object.entries(natalPlanets)) {
+
+            const planetDegree = Number(
+                planetData?.fullDegree
+            );
+
+            if (!Number.isFinite(planetDegree)) {
+                continue;
+            }
+
+            const planetSignIndex =
+                getD5SignIndex(planetDegree);
+
+            const planetSign =
+                d5SignNames[planetSignIndex];
+
+            const house =
+                ((planetSignIndex - d5AscendantIndex + 12) % 12) + 1;
+
+            d5Placements[planetName] = {
+                longitude: planetDegree,
+                sign: planetSign,
+                house: house
+            };
+        }
+
+        if (Object.keys(d5Placements).length > 0) {
+            d5Details = {
+                ...(d5ApiDetails || {}),
+                chart: 'D5',
+                reference_sign: d5AscendantSign,
+                placements: d5Placements
+            };
+
+            console.log(
+                'RADHE D5 PARASHARI CORRECTED DATA:',
+                JSON.stringify(d5Details, null, 2)
+            );
+        } else {
+            console.error(
+                'D5 correction skipped: D1 planet degrees unavailable.'
+            );
+        }
+    } else {
+        console.error(
+            'D5 correction skipped: D1 ascendant or planets unavailable.'
+        );
+    }
+} catch (d5CalculationError) {
+    console.error(
+        'D5 PARASHARI CALCULATION ERROR:',
+        d5CalculationError.message
+    );
+}
+        
 
 
 // D-6 Shashtamsha
