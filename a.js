@@ -2668,6 +2668,14 @@ app.get('/api/graha-bala-diagnostic', async (req, res) => {
             longitude,
             latitude
         );
+        const moonTopocentric = eph.topocentric(
+    Body.Moon,
+    jd,
+    longitude,
+    latitude,
+    0,
+    { year: decimalYear }
+);
 
         return res.json({
             success: true,
