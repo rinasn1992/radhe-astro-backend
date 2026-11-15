@@ -2603,6 +2603,93 @@ app.post('/api/graha-bala-test', (req, res) => {
     }
 });
 
+// ============================================
+// GRAHA BALA - EPHEMERIS DIAGNOSTIC API
+// Separate test route; existing APIs untouched
+// ============================================
+
+app.get('/api/graha-bala-diagnostic', async (req, res) => {
+    try {
+        const mod = await import('@astrologer/ephemera');
+
+        const eph = await mod.createEphemera();
+        const Body = mod.Body;
+        const Ayanamsa = mod.Ayanamsa;
+
+        const latitude = 25.1529579;
+        const longitude = 85.0065043;
+
+        // Birth: 3 March 1988, 18:00 UTC
+        const jd = eph.julianDate(1988, 3, 3.75);
+
+        const decimalYear =
+            1988 + (jd - eph.julianDate(1988, 1, 1)) /
+            (eph.julianDate(1989, 1, 1) -
+             eph.julianDate(1988, 1, 1));
+
+        const tt = eph.utToTt(jd, decimalYear);
+
+        const ayanamsha = eph.ayanamsa(
+            Ayanamsa.Lahiri,
+            tt
+        );
+
+        function normalize(value) {
+            return ((value % 360) + 360) % 360;
+        }
+
+        const planets = {
+            Sun: Body.Sun,
+            Moon: Body.Moon,
+            Mars: Body.Mars,
+            Mercury: Body.Mercury,
+            Jupiter: Body.Jupiter,
+            Venus: Body.Venus,
+            Saturn: Body.Saturn
+        };
+
+        const positions = {};
+
+        for (const [name, body] of Object.entries(planets)) {
+            const p = eph.position(body, jd);
+
+            positions[name] = {
+                tropicalLongitude: p.longitude,
+                siderealLongitude: normalize(
+                    p.longitude - ayanamsha
+                ),
+                tropicalDailyMotion: p.longitudeSpeed,
+                eclipticLatitude: p.latitude
+            };
+        }
+
+        const ascMc = eph.ascMc(
+            jd,
+            longitude,
+            latitude
+        );
+
+        return res.json({
+            success: true,
+            engine: 'Ephemera 0.4.1',
+            test: 'Birth-time seven-planet diagnostic',
+            birthUTC: '1988-03-03T18:00:00Z',
+            ayanamsha: 'Lahiri',
+            ayanamshaValue: ayanamsha,
+            ascMc,
+            planets: positions
+        });
+
+    } catch (error) {
+        console.error('GRAHA BALA DIAGNOSTIC:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // Vercel serverless export
 module.exports = app;
 
