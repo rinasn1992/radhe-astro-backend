@@ -2692,6 +2692,24 @@ for (const methodName of [
     };
 }
         
+const HouseSystem = mod.HouseSystem;
+
+const houseSystemOptions = HouseSystem
+    ? Object.fromEntries(Object.entries(HouseSystem))
+    : null;
+
+const housesInfoResult = eph.housesInfo(
+    jd,
+    longitude,
+    latitude
+);
+
+const houseAnglesResult = eph.houseAngles(
+    jd,
+    longitude,
+    latitude
+);
+        
         const moonTopocentric = eph.topocentric(
     Body.Moon,
     jd,
@@ -2711,6 +2729,9 @@ for (const methodName of [
                         ascMc,
 moonTopocentric: moonTopocentric,
             houseMethodDiagnostics,
+            houseSystemOptions,
+housesInfoResult,
+houseAnglesResult,
             topocentricMethod: {
                 argumentsCount: eph.topocentric.length,
                 source: String(eph.topocentric).slice(0, 1200)
