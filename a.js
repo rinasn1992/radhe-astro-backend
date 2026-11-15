@@ -2685,7 +2685,7 @@ app.get('/api/graha-bala-diagnostic', async (req, res) => {
             ayanamsha: 'Lahiri',
             ayanamshaValue: ayanamsha,
                         ascMc,
-
+moonTopocentric: moonTopocentric,
             topocentricMethod: {
                 argumentsCount: eph.topocentric.length,
                 source: String(eph.topocentric).slice(0, 1200)
