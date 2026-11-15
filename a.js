@@ -11,7 +11,21 @@ app.use(cors({
         : true
 }));
 
+
 app.use(express.json({ limit: '32kb' }));
+
+// ==========================================
+// RADHE ASTRO - GRAHA BALA TEST API
+// ==========================================
+
+app.get('/api/grah-bala-test', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'Graha Bala route is reachable',
+        engineLoaded: !!GrahaBala
+    });
+});
+
 // ==========================================
 // RADHE ASTRO - GRAHA BALA VALIDATION API
 // ==========================================
@@ -47,6 +61,7 @@ app.post('/api/grah-bala', (req, res) => {
         });
     }
 });
+
 
 // Root Route
 app.get('/', (req, res) => {
