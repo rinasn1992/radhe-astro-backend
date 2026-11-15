@@ -127,6 +127,52 @@ app.get('/api/grah-bala-functions-test', (req, res) => {
 });
 
 // ==========================================
+// RADHE ASTRO - SAPTAVARGAJA BALA TEST API
+// ==========================================
+
+app.get('/api/grah-bala-saptavargaja-test', (req, res) => {
+    try {
+        const d1Details = {
+            planets: {
+                Sun: { fullDegree: 319.68937749309504 },
+                Moon: { fullDegree: 140.82145858967252 },
+                Mars: { fullDegree: 253.2679431973661 },
+                Mercury: { fullDegree: 292.82171267617184 },
+                Jupiter: { fullDegree: 5.301499195602361 },
+                Venus: { fullDegree: 3.28380103071429 },
+                Saturn: { fullDegree: 247.67300492191634 }
+            }
+        };
+
+        const results = {};
+
+        for (const planet of GrahaBala.PLANETS) {
+            results[planet] =
+                GrahaBala.calculateSaptavargajaBala(
+                    planet,
+                    d1Details
+                );
+        }
+
+        return res.status(200).json({
+            success: true,
+            engine: 'Radhe Astro Graha Bala Engine',
+            test: 'Seven Planet Saptavargaja Bala',
+            calculationBasis: 'Sample D1 sidereal longitudes',
+            results
+        });
+
+    } catch (error) {
+        console.error('SAPTAVARGAJA TEST ERROR:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ==========================================
 // RADHE ASTRO - GRAHA BALA VALIDATION API
 // ==========================================
 
