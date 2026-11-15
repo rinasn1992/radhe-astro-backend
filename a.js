@@ -2676,7 +2676,13 @@ app.get('/api/graha-bala-diagnostic', async (req, res) => {
             birthUTC: '1988-03-03T18:00:00Z',
             ayanamsha: 'Lahiri',
             ayanamshaValue: ayanamsha,
-            ascMc,
+                        ascMc,
+
+            topocentricMethod: {
+                argumentsCount: eph.topocentric.length,
+                source: String(eph.topocentric).slice(0, 1200)
+            },
+
             planets: positions
         });
 
