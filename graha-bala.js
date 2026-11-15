@@ -407,8 +407,10 @@ function calculateSevenVargaSigns(longitude) {
         ? (degree < 15 ? 4 : 3)
         : (degree < 15 ? 3 : 4);
 
-    // D3 Drekkana
-    const drekkana = (sign + part3 * 4) % 12;
+    // D3 Drekkana - BPHS Correct Rule
+const drekkana = sign % 2 === 0
+    ? (sign + part3 * 4) % 12
+    : (sign + (2 - part3) * 4) % 12;
 
     // D7 Saptamsa
     const saptamsa = (
