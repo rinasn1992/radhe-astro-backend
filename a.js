@@ -2524,6 +2524,34 @@ retrogradePeriods: saturnRetrogradePeriods
     }
 });
 
+const grahaBalaEngine = require('./graha-bala');
+
+app.post('/api/graha-bala-test', (req, res) => {
+    try {
+        const { d1Details } = req.body || {};
+
+        if (!d1Details) {
+            return res.status(400).json({
+                success: false,
+                message: 'D1 chart data is required.'
+            });
+        }
+
+        const result =
+            grahaBalaEngine.validateD1Positions(d1Details);
+
+        return res.json(result);
+
+    } catch (error) {
+        console.error('GRAHA BALA TEST ERROR:', error.message);
+
+        return res.status(400).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // Vercel serverless export
 module.exports = app;
 
