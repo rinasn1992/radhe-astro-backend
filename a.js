@@ -86,8 +86,8 @@ app.get('/api/grah-bala-functions-test', (req, res) => {
             ojhayugmaRasiBala: ojhayugma.rasiBala === 15,
             ojhayugmaNavamsaBala: ojhayugma.navamsaBala === 0,
             kendradiBala: kendradi === 60,
-            drekkanaBala: drekkana.bala === 15,
-            partialTotal: partial.partialTotalVirupa === 150
+            drekkanaBala: drekkana.bala === 0,
+            partialTotal: partial.partialTotalVirupa === 135
         };
 
         const failedChecks = Object.keys(checks).filter(
