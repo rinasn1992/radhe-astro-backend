@@ -2668,6 +2668,30 @@ app.get('/api/graha-bala-diagnostic', async (req, res) => {
             longitude,
             latitude
         );
+        
+const houseMethodDiagnostics = {};
+
+for (const methodName of [
+    'houses',
+    'housesInfo',
+    'houseAngles',
+    'housePosition'
+]) {
+    const method = eph[methodName];
+
+    houseMethodDiagnostics[methodName] = {
+        available: typeof method === 'function',
+        argumentsCount:
+            typeof method === 'function'
+                ? method.length
+                : null,
+        source:
+            typeof method === 'function'
+                ? String(method).slice(0, 1800)
+                : null
+    };
+}
+        
         const moonTopocentric = eph.topocentric(
     Body.Moon,
     jd,
@@ -2686,6 +2710,7 @@ app.get('/api/graha-bala-diagnostic', async (req, res) => {
             ayanamshaValue: ayanamsha,
                         ascMc,
 moonTopocentric: moonTopocentric,
+            houseMethodDiagnostics,
             topocentricMethod: {
                 argumentsCount: eph.topocentric.length,
                 source: String(eph.topocentric).slice(0, 1200)
