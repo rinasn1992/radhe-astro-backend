@@ -923,64 +923,6 @@ try {
     console.error('RADHE D9 API ERROR:', d9Error);
 }
 
-// D-12 Dvadasamsa Divisional Chart API
-let d12Details = null;
-let d12Error = null;
-
-try {
-    const d12ApiResponse = await fetch(
-        'https://api.navamsha.in/api/v1/divisional/d12',
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-API-Key': apiKey
-            },
-            body: JSON.stringify(apiPayload),
-            signal: AbortSignal.timeout(25000)
-        }
-    );
-
-    const d12ResponseText = await d12ApiResponse.text();
-    let d12Result;
-
-    try {
-        d12Result = JSON.parse(d12ResponseText);
-    } catch {
-        throw new Error('D-12 API returned invalid JSON.');
-    }
-
-    if (
-        !d12ApiResponse.ok ||
-        (d12Result.statusCode &&
-         Number(d12Result.statusCode) >= 400)
-    ) {
-        throw new Error(
-            d12Result.message ||
-            d12Result.error ||
-            'D-12 API request failed.'
-        );
-    }
-
-    d12Details = d12Result.output || d12Result;
-
-    if (!d12Details || typeof d12Details !== 'object') {
-        throw new Error('D-12 data is invalid.');
-    }
-
-    console.log(
-        'RADHE D12 COMPLETE DATA:',
-        JSON.stringify(d12Details, null, 2)
-    );
-
-} catch (d12FetchError) {
-    d12Error = d12FetchError.name === 'TimeoutError'
-        ? 'D-12 API request timed out.'
-        : d12FetchError.message;
-
-    console.error('RADHE D12 API ERROR:', d12Error);
-}
-
 
 // D-30 Trimsamsa Divisional Chart API
 let d30Details = null;
@@ -1290,6 +1232,8 @@ d11Details,
 d11Error,
 d12Details,
 d12Error,
+d30Details,
+d30Error,
             
 
             birthDetails: {
