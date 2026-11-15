@@ -27,6 +27,106 @@ app.get('/api/grah-bala-test', (req, res) => {
 });
 
 // ==========================================
+// RADHE ASTRO - GRAHA BALA FUNCTIONS DIAGNOSTIC
+// ==========================================
+
+app.get('/api/grah-bala-functions-test', (req, res) => {
+    try {
+        const requiredFunctions = [
+            'calculateUchchaBala',
+            'getNavamsaSignIndex',
+            'calculateOjhayugmaBala',
+            'calculateKendradiBala',
+            'calculateDrekkanaBala',
+            'calculatePartialSthanaBala'
+        ];
+
+        const missingFunctions = requiredFunctions.filter(
+            name => typeof GrahaBala[name] !== 'function'
+        );
+
+        if (missingFunctions.length > 0) {
+            return res.status(500).json({
+                success: false,
+                message: 'Required calculation functions are missing.',
+                missingFunctions
+            });
+        }
+
+        // Fixed test case: Sun at 10 degrees Aries, 1st house
+        const planet = 'Sun';
+        const longitude = 10;
+        const houseNumber = 1;
+
+        const uchcha =
+            GrahaBala.calculateUchchaBala(planet, longitude);
+
+        const navamsa =
+            GrahaBala.getNavamsaSignIndex(longitude);
+
+        const ojhayugma =
+            GrahaBala.calculateOjhayugmaBala(planet, longitude);
+
+        const kendradi =
+            GrahaBala.calculateKendradiBala(houseNumber);
+
+        const drekkana =
+            GrahaBala.calculateDrekkanaBala(planet, longitude);
+
+        const partial =
+            GrahaBala.calculatePartialSthanaBala(
+                planet,
+                longitude,
+                houseNumber
+            );
+
+        const checks = {
+            uchchaBala: uchcha === 60,
+            navamsaSign: navamsa === 3,
+            ojhayugmaRasiBala: ojhayugma.rasiBala === 15,
+            ojhayugmaNavamsaBala: ojhayugma.navamsaBala === 0,
+            kendradiBala: kendradi === 60,
+            drekkanaBala: drekkana.bala === 15,
+            partialTotal: partial.partialTotalVirupa === 150
+        };
+
+        const failedChecks = Object.keys(checks).filter(
+            key => checks[key] !== true
+        );
+
+        return res.status(200).json({
+            success: failedChecks.length === 0,
+            engine: 'Radhe Astro Graha Bala Engine',
+            test: 'Four Sthana Bala components',
+            input: {
+                planet,
+                siderealLongitude: longitude,
+                houseNumber
+            },
+            results: {
+                uchchaBala: uchcha,
+                navamsaSignIndex: navamsa,
+                ojhayugmaBala: ojhayugma,
+                kendradiBala: kendradi,
+                drekkanaBala: drekkana,
+                partialSthanaBala: partial
+            },
+            checks,
+            failedChecks,
+            note: 'Saptavargaja Bala is not included yet.'
+        });
+
+    } catch (error) {
+        console.error('GRAHA BALA DIAGNOSTIC ERROR:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message || 'Diagnostic test failed.'
+        });
+    }
+});
+
+// ==========================================
 // RADHE ASTRO - GRAHA BALA VALIDATION API
 // ==========================================
 
