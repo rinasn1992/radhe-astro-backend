@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { find } = require('geo-tz');
 const Astronomy = require('astronomy-engine');
-const GrahaBala = require('./grah-bala');
+const GrahaBala = require('./graha-bala');
 const app = express();
 
 app.use(cors({
@@ -20,28 +20,34 @@ app.post('/api/grah-bala', (req, res) => {
     try {
         const { d1Details } = req.body || {};
 
-        if (!d1Details) {
+        if (!d1Details || typeof d1Details !== 'object') {
             return res.status(400).json({
                 success: false,
-                message: 'D1 planetary data is required.'
+                message: 'Valid D1 planetary data is required.'
             });
         }
 
-        const result = GrahaBala.validateD1Positions(
-            d1Details
-        );
+        const result = GrahaBala.validateD1Positions(d1Details);
+
+        if (!result || result.success !== true) {
+            return res.status(400).json({
+                success: false,
+                message: result?.message || 'Graha Bala validation failed.'
+            });
+        }
 
         return res.status(200).json(result);
 
     } catch (error) {
         console.error('GRAHA BALA API ERROR:', error);
 
-        return res.status(400).json({
+        return res.status(500).json({
             success: false,
-            message: error.message
+            message: error.message || 'Internal Graha Bala API error.'
         });
     }
 });
+
 // Root Route
 app.get('/', (req, res) => {
     res.json({
