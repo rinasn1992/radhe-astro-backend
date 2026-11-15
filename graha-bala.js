@@ -634,7 +634,7 @@ module.exports = {
     calculateOjhayugmaBala,
     calculateKendradiBala,
     calculateDrekkanaBala,
-    calculatePartialSthanaBala
+    calculatePartialSthanaBala,
     calculateSevenVargaSigns,
-calculateSaptavargajaBala
+    calculateSaptavargajaBala
 };
