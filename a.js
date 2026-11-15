@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { find } = require('geo-tz');
 const Astronomy = require('astronomy-engine');
+const GrahaBala = require('./grah-bala');
 const app = express();
 
 app.use(cors({
@@ -11,7 +12,36 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '32kb' }));
+// ==========================================
+// RADHE ASTRO - GRAHA BALA VALIDATION API
+// ==========================================
 
+app.post('/api/grah-bala', (req, res) => {
+    try {
+        const { d1Details } = req.body || {};
+
+        if (!d1Details) {
+            return res.status(400).json({
+                success: false,
+                message: 'D1 planetary data is required.'
+            });
+        }
+
+        const result = GrahaBala.validateD1Positions(
+            d1Details
+        );
+
+        return res.status(200).json(result);
+
+    } catch (error) {
+        console.error('GRAHA BALA API ERROR:', error);
+
+        return res.status(400).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 // Root Route
 app.get('/', (req, res) => {
     res.json({
