@@ -1610,6 +1610,786 @@ birthTrueRahu: getPlanetPosition(birthDate, Body.TrueNode)
     }
 });
 
+// ================================================
+// GURU - SHANI RASHI TRANSIT API (2036 - 2050)
+// Dynamic Lahiri Sidereal Calculation
+// ================================================
+
+app.get('/api/guru-shani-transit-2036-2050', async (req, res) => {
+    try {
+        if (!ephemeraTestInstancePromise) {
+            ephemeraTestInstancePromise =
+                import('@astrologer/ephemera').then(
+                    async (mod) => ({
+                        eph: await mod.createEphemera(),
+                        Body: mod.Body,
+                        Ayanamsa: mod.Ayanamsa
+                    })
+                );
+        }
+
+        const { eph, Body, Ayanamsa } =
+            await ephemeraTestInstancePromise;
+
+        const startDate = new Date('2036-01-01T00:00:00Z');
+        const endDate = new Date('2051-01-01T00:00:00Z');
+
+        const STEP_MS = 6 * 60 * 60 * 1000;
+        const BISSECTION_ITERATIONS = 32;
+
+        const signs = [
+            'मेष', 'वृषभ', 'मिथुन', 'कर्क',
+            'सिंह', 'कन्या', 'तुला', 'वृश्चिक',
+            'धनु', 'मकर', 'कुंभ', 'मीन'
+        ];
+
+        function normalize(degrees) {
+            return ((degrees % 360) + 360) % 360;
+        }
+
+        function signedAngleDifference(a, b) {
+            let difference = normalize(a - b);
+
+            if (difference > 180) {
+                difference -= 360;
+            }
+
+            return difference;
+        }
+
+        function getDecimalYear(date) {
+            const year = date.getUTCFullYear();
+            const yearStart = Date.UTC(year, 0, 1);
+            const nextYearStart = Date.UTC(year + 1, 0, 1);
+
+            return year +
+                (date.getTime() - yearStart) /
+                (nextYearStart - yearStart);
+        }
+
+        function getSiderealLongitude(date, body) {
+            const year = date.getUTCFullYear();
+            const month = date.getUTCMonth() + 1;
+
+            const day =
+                date.getUTCDate() +
+                (
+                    date.getUTCHours() * 3600 +
+                    date.getUTCMinutes() * 60 +
+                    date.getUTCSeconds() +
+                    date.getUTCMilliseconds() / 1000
+                ) / 86400;
+
+            const jd = eph.julianDate(year, month, day);
+
+            const tt = eph.utToTt(
+                jd,
+                getDecimalYear(date)
+            );
+
+            const planet = eph.position(body, jd);
+
+            const ayanamsha = eph.ayanamsa(
+                Ayanamsa.Lahiri,
+                tt
+            );
+
+            return normalize(
+                planet.longitude - ayanamsha
+            );
+        }
+
+        function getIST(date) {
+            return new Intl.DateTimeFormat('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            }).format(date);
+        }
+
+        function findCrossingTime(
+            body,
+            startMs,
+            endMs,
+            startLongitude,
+            targetOffset,
+            direction
+        ) {
+            let low = startMs;
+            let high = endMs;
+
+            for (
+                let i = 0;
+                i < BISSECTION_ITERATIONS;
+                i++
+            ) {
+                const middle = Math.floor(
+                    (low + high) / 2
+                );
+
+                const middleLongitude =
+                    getSiderealLongitude(
+                        new Date(middle),
+                        body
+                    );
+
+                const movement =
+                    signedAngleDifference(
+                        middleLongitude,
+                        startLongitude
+                    );
+
+                if (direction === 'DIRECT') {
+                    if (movement < targetOffset) {
+                        low = middle;
+                    } else {
+                        high = middle;
+                    }
+                } else {
+                    if (movement > targetOffset) {
+                        low = middle;
+                    } else {
+                        high = middle;
+                    }
+                }
+            }
+
+            return new Date(high);
+        }
+
+        function getTransitEvents(body) {
+            const events = [];
+
+            let currentMs = startDate.getTime();
+
+            let currentLongitude =
+                getSiderealLongitude(
+                    startDate,
+                    body
+                );
+
+            let unwrappedLongitude = currentLongitude;
+
+            while (currentMs < endDate.getTime()) {
+                const nextMs = Math.min(
+                    currentMs + STEP_MS,
+                    endDate.getTime()
+                );
+
+                const nextLongitude =
+                    getSiderealLongitude(
+                        new Date(nextMs),
+                        body
+                    );
+
+                const movement =
+                    signedAngleDifference(
+                        nextLongitude,
+                        currentLongitude
+                    );
+
+                const nextUnwrapped =
+                    unwrappedLongitude + movement;
+
+                if (movement > 0) {
+                    let boundaryIndex =
+                        Math.floor(
+                            unwrappedLongitude / 30
+                        ) + 1;
+
+                    while (
+                        boundaryIndex * 30 <=
+                        nextUnwrapped + 0.000000001
+                    ) {
+                        const targetLongitude =
+                            boundaryIndex * 30;
+
+                        const targetOffset =
+                            targetLongitude -
+                            unwrappedLongitude;
+
+                        const crossingDate =
+                            findCrossingTime(
+                                body,
+                                currentMs,
+                                nextMs,
+                                currentLongitude,
+                                targetOffset,
+                                'DIRECT'
+                            );
+
+                        const fromIndex =
+                            ((boundaryIndex - 1) % 12 + 12) % 12;
+
+                        const toIndex =
+                            (boundaryIndex % 12 + 12) % 12;
+
+                        events.push({
+                            fromSign: signs[fromIndex],
+                            toSign: signs[toIndex],
+                            direction: 'DIRECT',
+                            crossingUTC:
+                                crossingDate.toISOString(),
+                            crossingIST:
+                                getIST(crossingDate)
+                        });
+
+                        boundaryIndex++;
+                    }
+                }
+
+                if (movement < 0) {
+                    let boundaryIndex =
+                        Math.ceil(
+                            unwrappedLongitude / 30
+                        ) - 1;
+
+                    while (
+                        boundaryIndex * 30 >=
+                        nextUnwrapped - 0.000000001
+                    ) {
+                        const targetLongitude =
+                            boundaryIndex * 30;
+
+                        const targetOffset =
+                            targetLongitude -
+                            unwrappedLongitude;
+
+                        const crossingDate =
+                            findCrossingTime(
+                                body,
+                                currentMs,
+                                nextMs,
+                                currentLongitude,
+                                targetOffset,
+                                'RETROGRADE'
+                            );
+
+                        const fromIndex =
+                            (boundaryIndex % 12 + 12) % 12;
+
+                        const toIndex =
+                            ((boundaryIndex - 1) % 12 + 12) % 12;
+
+                        events.push({
+                            fromSign: signs[fromIndex],
+                            toSign: signs[toIndex],
+                            direction: 'RETROGRADE',
+                            crossingUTC:
+                                crossingDate.toISOString(),
+                            crossingIST:
+                                getIST(crossingDate)
+                        });
+
+                        boundaryIndex--;
+                    }
+                }
+
+                currentMs = nextMs;
+                currentLongitude = nextLongitude;
+                unwrappedLongitude = nextUnwrapped;
+            }
+
+            return events;
+        }
+
+        const jupiterEvents =
+            getTransitEvents(Body.Jupiter);
+
+        const saturnEvents =
+            getTransitEvents(Body.Saturn);
+
+        return res.json({
+            success: true,
+            engine: 'Ephemera 0.4.1',
+            calculation: 'Dynamic Lahiri Sidereal',
+            reference: 'Geocentric',
+            period: {
+                from: '2036-01-01',
+                to: '2050-12-31'
+            },
+            timeZone: 'Asia/Kolkata',
+            method: '6-hour scanning + 32-step bisection refinement',
+            planets: {
+                jupiter: {
+                    name: 'गुरु',
+                    totalTransits: jupiterEvents.length,
+                    events: jupiterEvents
+                },
+                saturn: {
+                    name: 'शनि',
+                    totalTransits: saturnEvents.length,
+                    events: saturnEvents
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error(
+            'GURU SHANI TRANSIT 2036-2050 ERROR:',
+            error.stack || error.message
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ================================================
+// GURU - SHANI SIDEREAL STATION API (2036-2050)
+// Dynamic Lahiri Ayanamsha
+// ================================================
+
+app.get('/api/guru-shani-stations-2036-2050', async (req, res) => {
+    try {
+        if (!ephemeraTestInstancePromise) {
+            ephemeraTestInstancePromise =
+                import('@astrologer/ephemera').then(
+                    async (mod) => ({
+                        eph: await mod.createEphemera(),
+                        Body: mod.Body,
+                        Ayanamsa: mod.Ayanamsa
+                    })
+                );
+        }
+
+        const { eph, Body, Ayanamsa } =
+            await ephemeraTestInstancePromise;
+
+        const startDate = new Date('2036-01-01T00:00:00Z');
+        const endDate = new Date('2051-01-01T00:00:00Z');
+
+        const STEP_MS = 6 * 60 * 60 * 1000;
+        const HALF_INTERVAL_MS = 60 * 60 * 1000;
+        const ITERATIONS = 35;
+
+        const signs = [
+            'मेष', 'वृषभ', 'मिथुन', 'कर्क',
+            'सिंह', 'कन्या', 'तुला', 'वृश्चिक',
+            'धनु', 'मकर', 'कुंभ', 'मीन'
+        ];
+
+        function normalize(degrees) {
+            return ((degrees % 360) + 360) % 360;
+        }
+
+        function signedDifference(a, b) {
+            let diff = normalize(a - b);
+
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+
+            return diff;
+        }
+
+        function decimalYear(date) {
+            const year = date.getUTCFullYear();
+            const start = Date.UTC(year, 0, 1);
+            const end = Date.UTC(year + 1, 0, 1);
+
+            return year +
+                (date.getTime() - start) / (end - start);
+        }
+
+        function getPosition(date, body) {
+            const year = date.getUTCFullYear();
+            const month = date.getUTCMonth() + 1;
+
+            const day =
+                date.getUTCDate() +
+                (
+                    date.getUTCHours() * 3600 +
+                    date.getUTCMinutes() * 60 +
+                    date.getUTCSeconds() +
+                    date.getUTCMilliseconds() / 1000
+                ) / 86400;
+
+            const jd = eph.julianDate(year, month, day);
+
+            const tt = eph.utToTt(
+                jd,
+                decimalYear(date)
+            );
+
+            const planet = eph.position(body, jd);
+
+            const ayanamsha = eph.ayanamsa(
+                Ayanamsa.Lahiri,
+                tt
+            );
+
+            return {
+                longitude: normalize(
+                    planet.longitude - ayanamsha
+                ),
+                ayanamsha
+            };
+        }
+
+        // Dynamic Lahiri Sidereal daily motion.
+        // Central difference using one hour on either side.
+        function getSiderealSpeed(date, body) {
+            const before = new Date(
+                date.getTime() - HALF_INTERVAL_MS
+            );
+
+            const after = new Date(
+                date.getTime() + HALF_INTERVAL_MS
+            );
+
+            const p1 = getPosition(before, body);
+            const p2 = getPosition(after, body);
+
+            const difference = signedDifference(
+                p2.longitude,
+                p1.longitude
+            );
+
+            return difference / (2 / 24);
+        }
+
+        function getIST(date) {
+            return new Intl.DateTimeFormat('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            }).format(date);
+        }
+
+        // Refine the zero point of sidereal daily motion.
+        function refineStation(body, lowMs, highMs, lowSpeed) {
+            let low = lowMs;
+            let high = highMs;
+
+            for (let i = 0; i < ITERATIONS; i++) {
+                const middle = Math.floor(
+                    (low + high) / 2
+                );
+
+                const middleSpeed = getSiderealSpeed(
+                    new Date(middle),
+                    body
+                );
+
+                if (
+                    (lowSpeed > 0 && middleSpeed > 0) ||
+                    (lowSpeed < 0 && middleSpeed < 0)
+                ) {
+                    low = middle;
+                    lowSpeed = middleSpeed;
+                } else {
+                    high = middle;
+                }
+            }
+
+            return new Date(
+                Math.floor((low + high) / 2)
+            );
+        }
+
+        function getStations(body) {
+            const events = [];
+
+            let currentMs = startDate.getTime();
+
+            let currentSpeed = getSiderealSpeed(
+                new Date(currentMs),
+                body
+            );
+
+            // Keep the last non-zero speed sample.
+            let previousNonZeroMs = currentMs;
+            let previousNonZeroSpeed = currentSpeed;
+
+            while (currentMs < endDate.getTime()) {
+
+                const nextMs = Math.min(
+                    currentMs + STEP_MS,
+                    endDate.getTime()
+                );
+
+                const nextSpeed = getSiderealSpeed(
+                    new Date(nextMs),
+                    body
+                );
+
+                // Ignore exact zero samples until the next
+                // non-zero sample confirms the direction.
+                if (nextSpeed !== 0) {
+
+                    const directionChanged =
+                        previousNonZeroSpeed > 0
+                            ? nextSpeed < 0
+                            : nextSpeed > 0;
+
+                    if (directionChanged) {
+
+                        const stationDate = refineStation(
+                            body,
+                            previousNonZeroMs,
+                            nextMs,
+                            previousNonZeroSpeed
+                        );
+
+                        const position = getPosition(
+                            stationDate,
+                            body
+                        );
+
+                        const signIndex = Math.floor(
+                            position.longitude / 30
+                        );
+
+                        const degreeInSign =
+                            position.longitude -
+                            signIndex * 30;
+
+                        const isRetrogradeStart =
+                            previousNonZeroSpeed > 0 &&
+                            nextSpeed < 0;
+
+                        events.push({
+                            event: isRetrogradeStart
+                                ? 'RETROGRADE_START'
+                                : 'DIRECT_START',
+
+                            direction: isRetrogradeStart
+                                ? 'RETROGRADE'
+                                : 'DIRECT',
+
+                            dateUTC: stationDate.toISOString(),
+
+                            dateIST: getIST(stationDate),
+
+                            siderealLongitude: Number(
+                                position.longitude.toFixed(8)
+                            ),
+
+                            sign: signs[signIndex],
+
+                            degreeInSign: Number(
+                                degreeInSign.toFixed(8)
+                            ),
+
+                            ayanamsha: Number(
+                                position.ayanamsha.toFixed(8)
+                            )
+                        });
+                    }
+
+                    previousNonZeroMs = nextMs;
+                    previousNonZeroSpeed = nextSpeed;
+                }
+
+                currentMs = nextMs;
+                currentSpeed = nextSpeed;
+            }
+
+            return events;
+        }
+
+        // Build complete retrograde periods from station events.
+
+        function buildRetrogradePeriods(events, initialSpeed) {
+            const periods = [];
+            let retrogradeStart = null;
+
+            // Planet was already retrograde at the beginning
+            // of the calculation range.
+            if (initialSpeed < 0) {
+                retrogradeStart = {
+                    dateUTC: null,
+                    dateIST: null,
+                    sign: null,
+                    degreeInSign: null,
+                    siderealLongitude: null
+                };
+            }
+
+            for (const event of events) {
+
+                if (event.event === 'RETROGRADE_START') {
+
+                    if (!retrogradeStart) {
+                        retrogradeStart = event;
+                    }
+                }
+
+                else if (
+                    event.event === 'DIRECT_START' &&
+                    retrogradeStart
+                ) {
+
+                    // Retrograde began before calculation range.
+                    if (retrogradeStart.dateUTC === null) {
+
+                        periods.push({
+                            status: 'STARTED_BEFORE_RANGE',
+
+                            startUTC: null,
+                            startIST: null,
+                            startSign: null,
+                            startDegreeInSign: null,
+                            startLongitude: null,
+
+                            endUTC: event.dateUTC,
+                            endIST: event.dateIST,
+                            endSign: event.sign,
+                            endDegreeInSign: event.degreeInSign,
+                            endLongitude: event.siderealLongitude,
+
+                            durationMilliseconds: null,
+                            durationHours: null,
+                            durationDays: null
+                        });
+                    }
+
+                    else {
+
+                        const startTime = new Date(
+                            retrogradeStart.dateUTC
+                        ).getTime();
+
+                        const endTime = new Date(
+                            event.dateUTC
+                        ).getTime();
+
+                        const durationMs = endTime - startTime;
+
+                        periods.push({
+                            status: 'COMPLETED',
+
+                            startUTC: retrogradeStart.dateUTC,
+                            startIST: retrogradeStart.dateIST,
+                            startSign: retrogradeStart.sign,
+                            startDegreeInSign:
+                                retrogradeStart.degreeInSign,
+                            startLongitude:
+                                retrogradeStart.siderealLongitude,
+
+                            endUTC: event.dateUTC,
+                            endIST: event.dateIST,
+                            endSign: event.sign,
+                            endDegreeInSign: event.degreeInSign,
+                            endLongitude: event.siderealLongitude,
+
+                            durationMilliseconds: durationMs,
+
+                            durationHours: Number(
+                                (durationMs / 3600000).toFixed(3)
+                            ),
+
+                            durationDays: Number(
+                                (durationMs / 86400000).toFixed(6)
+                            )
+                        });
+                    }
+
+                    retrogradeStart = null;
+                }
+            }
+
+            // Retrograde continues beyond the calculation range.
+            if (retrogradeStart) {
+
+                periods.push({
+                    status: retrogradeStart.dateUTC === null
+                        ? 'ONGOING_FROM_BEFORE_RANGE'
+                        : 'ONGOING',
+
+                    startUTC: retrogradeStart.dateUTC,
+                    startIST: retrogradeStart.dateIST,
+                    startSign: retrogradeStart.sign,
+                    startDegreeInSign:
+                        retrogradeStart.degreeInSign,
+                    startLongitude:
+                        retrogradeStart.siderealLongitude,
+
+                    endUTC: null,
+                    endIST: null,
+
+                    durationMilliseconds: null,
+                    durationHours: null,
+                    durationDays: null
+                });
+            }
+
+            return periods;
+        }
+
+        const jupiterStations = getStations(Body.Jupiter);
+        const saturnStations = getStations(Body.Saturn);
+
+        const jupiterRetrogradePeriods =
+            buildRetrogradePeriods(
+                jupiterStations,
+                getSiderealSpeed(startDate, Body.Jupiter)
+            );
+
+        const saturnRetrogradePeriods =
+            buildRetrogradePeriods(
+                saturnStations,
+                getSiderealSpeed(startDate, Body.Saturn)
+            );
+
+        return res.json({
+            success: true,
+            engine: 'Ephemera 0.4.1',
+            calculation: 'Dynamic Lahiri Sidereal',
+            reference: 'Geocentric',
+            period: {
+                from: '2036-01-01',
+                to: '2050-12-31'
+            },
+            timeZone: 'Asia/Kolkata',
+            method: 'Sidereal central-difference speed + bisection',
+            scanIntervalHours: 6,
+            stationSpeedIntervalHours: 2,
+            planets: {
+                jupiter: {
+                    name: 'गुरु',
+                    totalStations: jupiterStations.length,
+                    events: jupiterStations,
+                    totalRetrogradePeriods:
+                        jupiterRetrogradePeriods.length,
+                    retrogradePeriods: jupiterRetrogradePeriods
+                },
+                saturn: {
+                    name: 'शनि',
+                    totalStations: saturnStations.length,
+                    events: saturnStations,
+                    totalRetrogradePeriods:
+                        saturnRetrogradePeriods.length,
+                    retrogradePeriods: saturnRetrogradePeriods
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error(
+            'GURU SHANI STATION 2036-2050 ERROR:',
+            error.stack || error.message
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+                    
 // ==========================================
 // GURU - SHANI DYNAMIC SIDEREAL MOTION CHECK
 // ==========================================
