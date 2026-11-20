@@ -8,12 +8,23 @@
       "config": {
         "includeFiles": "node_modules/@astrologer/ephemera/wasm/**"
       }
+    },
+    {
+      "src": "matchmaking.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": "node_modules/@astrologer/ephemera/wasm/**"
+      }
     }
   ],
   "routes": [
     {
+      "src": "/api/matchmaking",
+      "dest": "matchmaking.js"
+    },
+    {
       "src": "/(.*)",
-      "destination": "a.js"
+      "dest": "a.js"
     }
   ]
 }
