@@ -335,7 +335,17 @@ app.get('/api/places', async (req, res) => {
         });
 
         if (!response.ok) {
-            throw new Error('Place search service unavailable');
+    const errorText = await response.text();
+
+    console.error("PHOTON SERVER ERROR:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+    });
+
+    throw new Error(
+        "Photon HTTP " + response.status
+    );
         }
 
         const data = await response.json();
@@ -396,13 +406,14 @@ app.get('/api/places', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Place Search Error:', error.message);
+    console.error('PLACE SEARCH DETAILED ERROR:', error);
 
-        return res.status(502).json({
-            success: false,
-            message: 'Could not search birth places. Please try again.'
-        });
-    }
+    return res.status(502).json({
+        success: false,
+        message: 'Could not search birth places. Please try again.',
+        error: error.message
+    });
+}
 });
 
 // Navamsha API Route
