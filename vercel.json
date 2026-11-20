@@ -6,14 +6,20 @@
       "src": "a.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": "node_modules/@astrologer/ephemera/wasm/**"
+        "includeFiles": [
+          "node_modules/@astrologer/ephemera/wasm/**",
+          "node_modules/geo-tz/data/**"
+        ]
       }
     },
     {
       "src": "matchmaking.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": "node_modules/@astrologer/ephemera/wasm/**"
+        "includeFiles": [
+          "node_modules/@astrologer/ephemera/wasm/**",
+          "node_modules/geo-tz/data/**"
+        ]
       }
     }
   ],
