@@ -297,6 +297,138 @@ function getMoonDetails(eph, Body, Ayanamsa, birthUTC) {
     };
 }
 
+// ------------------------------------------
+// MANGALIK - RAW SIDEREAL POSITIONS
+// Lahiri Ayanamsha + Whole Sign
+// ------------------------------------------
+
+function getManglikDetails(
+    eph,
+    Body,
+    Ayanamsa,
+    birthUTC,
+    latitude,
+    longitude,
+    moonDetails
+) {
+    const jd = getJulianDate(eph, birthUTC);
+
+    const tt = eph.utToTt(
+        jd,
+        getDecimalYear(birthUTC)
+    );
+
+    const ayanamsha = eph.ayanamsa(
+        Ayanamsa.Lahiri,
+        tt
+    );
+
+    // Tropical planetary positions
+    const mars = eph.position(Body.Mars, jd);
+    const venus = eph.position(Body.Venus, jd);
+
+    // Tropical Ascendant and MC
+    const angles = eph.ascMc(
+        jd,
+        longitude,
+        latitude
+    );
+
+    if (
+        !mars ||
+        !venus ||
+        !angles ||
+        !Number.isFinite(angles.asc)
+    ) {
+        throw new Error(
+            'Manglik planetary or Ascendant calculation failed.'
+        );
+    }
+
+    // Convert tropical longitudes to Lahiri sidereal
+    const marsLongitude = normalize(
+        mars.longitude - ayanamsha
+    );
+
+    const venusLongitude = normalize(
+        venus.longitude - ayanamsha
+    );
+
+    const ascLongitude = normalize(
+        angles.asc - ayanamsha
+    );
+
+    const marsRashiIndex = Math.floor(
+        marsLongitude / 30
+    );
+
+    const venusRashiIndex = Math.floor(
+        venusLongitude / 30
+    );
+
+    const ascRashiIndex = Math.floor(
+        ascLongitude / 30
+    );
+
+    // Whole Sign house calculation
+    function getHouseFromReference(referenceRashiIndex) {
+        return (
+            (marsRashiIndex - referenceRashiIndex + 12) % 12
+        ) + 1;
+    }
+
+    const manglikHouses = [1, 2, 4, 7, 8, 12];
+
+    const lagnaHouse = getHouseFromReference(
+        ascRashiIndex
+    );
+
+    const moonHouse = getHouseFromReference(
+        moonDetails.rashiIndex
+    );
+
+    const venusHouse = getHouseFromReference(
+        venusRashiIndex
+    );
+
+    function getResult(house) {
+        return {
+            marsHouse: house,
+            manglikPosition: manglikHouses.includes(house)
+        };
+    }
+
+    return {
+        calculation: 'Lahiri Sidereal - Whole Sign',
+        ayanamsha: Number(ayanamsha.toFixed(8)),
+
+        ascendant: {
+            longitude: Number(ascLongitude.toFixed(8)),
+            rashi: RASHIS[ascRashiIndex],
+            rashiIndex: ascRashiIndex
+        },
+
+        mars: {
+            tropicalLongitude: Number(mars.longitude.toFixed(8)),
+            siderealLongitude: Number(marsLongitude.toFixed(8)),
+            rashi: RASHIS[marsRashiIndex],
+            rashiIndex: marsRashiIndex
+        },
+
+        venus: {
+            siderealLongitude: Number(venusLongitude.toFixed(8)),
+            rashi: RASHIS[venusRashiIndex],
+            rashiIndex: venusRashiIndex
+        },
+
+        fromLagna: getResult(lagnaHouse),
+        fromMoon: getResult(moonHouse),
+        fromVenus: getResult(venusHouse),
+
+        manglikHouses
+    };
+}
+
 // ==========================================
 // RADHE ASTRO - ASHTAKOOTA TABLES & HELPERS
 // Reference: Muhurta Chintamani Vivaha Prakarana
@@ -1028,41 +1160,63 @@ app.post('/api/matchmaking', async (req, res) => {
             girlUTC
         );
 
-        return res.status(200).json({
-            success: true,
+const boyManglik = getManglikDetails(
+    eph,
+    Body,
+    Ayanamsa,
+    boyUTC,
+    boyData.latitude,
+    boyData.longitude,
+    boyMoon
+);
 
-            service: 'Radhe Astro Kundali Matchmaking',
+const girlManglik = getManglikDetails(
+    eph,
+    Body,
+    Ayanamsa,
+    girlUTC,
+    girlData.latitude,
+    girlData.longitude,
+    girlMoon
+);
+        
+        
+return res.status(200).json({
+    success: true,
 
-            engine: 'Ephemera 0.4.1',
+    service: 'Radhe Astro Kundali Matchmaking',
 
-            calculation: 'Geocentric Sidereal',
+    engine: 'Ephemera 0.4.1',
 
-            ayanamsha: 'Lahiri',
+    calculation: 'Lahiri Sidereal - Moon, Ascendant and Planetary Positions',
 
-            boy: {
-                name: boyData.name,
-                birthPlace: boyData.pob,
-                birthUTC: boyUTC.toISOString(),
-                timezoneName: boyData.timezoneName,
-                latitude: boyData.latitude,
-                longitude: boyData.longitude,
-                moon: boyMoon
-            },
+    ayanamsha: 'Lahiri',
 
-            girl: {
-                name: girlData.name,
-                birthPlace: girlData.pob,
-                birthUTC: girlUTC.toISOString(),
-                timezoneName: girlData.timezoneName,
-                latitude: girlData.latitude,
-                longitude: girlData.longitude,
-                moon: girlMoon
-            },
+    boy: {
+        name: boyData.name,
+        birthPlace: boyData.pob,
+        birthUTC: boyUTC.toISOString(),
+        timezoneName: boyData.timezoneName,
+        latitude: boyData.latitude,
+        longitude: boyData.longitude,
+        moon: boyMoon,
+        manglik: boyManglik
+    },
 
-            
-ashtakoot: calculateAshtakoota(boyMoon, girlMoon)
-            
-        });
+    girl: {
+        name: girlData.name,
+        birthPlace: girlData.pob,
+        birthUTC: girlUTC.toISOString(),
+        timezoneName: girlData.timezoneName,
+        latitude: girlData.latitude,
+        longitude: girlData.longitude,
+        moon: girlMoon,
+        manglik: girlManglik
+    },
+
+    ashtakoot: calculateAshtakoota(boyMoon, girlMoon)
+});
+        
 
     } catch (error) {
         console.error(
