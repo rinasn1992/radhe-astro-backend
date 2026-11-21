@@ -1141,6 +1141,112 @@ function getPanchadhaMaitriDetails(chart) {
     };
 }
 
+function getCoupleKarakaComparison(boyChart, girlChart) {
+
+    const pairs = [
+        {
+            boyPlanet: 'venus',
+            girlPlanet: 'venus',
+            label: 'शुक्र-शुक्र'
+        },
+        {
+            boyPlanet: 'jupiter',
+            girlPlanet: 'jupiter',
+            label: 'गुरु-गुरु'
+        },
+        {
+            boyPlanet: 'venus',
+            girlPlanet: 'jupiter',
+            label: 'लड़के का शुक्र - लड़की का गुरु'
+        },
+        {
+            boyPlanet: 'jupiter',
+            girlPlanet: 'venus',
+            label: 'लड़के का गुरु - लड़की का शुक्र'
+        }
+    ];
+
+    function getRelationship(distance) {
+
+        if (distance === 1) return 'समान राशि';
+        if ([5, 9].includes(distance)) return 'त्रिकोण संबंध';
+        if ([4, 7, 10].includes(distance)) return 'केंद्र संबंध';
+        if ([2, 12].includes(distance)) return 'द्विर्द्वादश संबंध';
+        if ([6, 8].includes(distance)) return 'षडाष्टक संबंध';
+        if ([3, 11].includes(distance)) return 'तृतीय-एकादश संबंध';
+
+        return 'अन्य';
+    }
+
+    function compareCharts(chartType) {
+
+        const signField =
+            chartType === 'D1'
+                ? 'rashiIndex'
+                : 'navamshaRashiIndex';
+
+        const signNameField =
+            chartType === 'D1'
+                ? 'rashi'
+                : 'navamshaRashi';
+
+        return pairs.map(pair => {
+
+            const boyPlanet =
+                boyChart.planets[pair.boyPlanet];
+
+            const girlPlanet =
+                girlChart.planets[pair.girlPlanet];
+
+            const boySign = boyPlanet[signField];
+            const girlSign = girlPlanet[signField];
+
+            const boyToGirlDistance =
+                ((girlSign - boySign + 12) % 12) + 1;
+
+            const girlToBoyDistance =
+                ((boySign - girlSign + 12) % 12) + 1;
+
+            return {
+                pair: pair.label,
+
+                boy: {
+                    planet: boyPlanet.name,
+                    rashi: boyPlanet[signNameField]
+                },
+
+                girl: {
+                    planet: girlPlanet.name,
+                    rashi: girlPlanet[signNameField]
+                },
+
+                boyToGirl: {
+                    relativeHouse: boyToGirlDistance,
+                    relationship:
+                        getRelationship(boyToGirlDistance)
+                },
+
+                girlToBoy: {
+                    relativeHouse: girlToBoyDistance,
+                    relationship:
+                        getRelationship(girlToBoyDistance)
+                }
+            };
+        });
+    }
+
+    return {
+        d1: compareCharts('D1'),
+        d9: compareCharts('D9'),
+
+        method:
+            'Inter-chart Venus and Jupiter Sign Relationship - D1 and D9',
+
+        note:
+            'This is a comparative sign relationship analysis, not an independent marriage compatibility score.'
+    };
+}
+
 // ==========================================
 // RADHE ASTRO - ASHTAKOOTA TABLES & HELPERS
 // Reference: Muhurta Chintamani Vivaha Prakarana
@@ -1927,6 +2033,9 @@ const boyPanchadhaMaitri =
 
 const girlPanchadhaMaitri =
     getPanchadhaMaitriDetails(girlChart);
+
+    const coupleKarakaComparison =
+    getCoupleKarakaComparison(boyChart, girlChart);
         
 return res.status(200).json({
     success: true,
@@ -1970,7 +2079,9 @@ marriageAspects: girlMarriageAspects,
 marriageKaraka: girlMarriageKaraka,
 panchadhaMaitri: girlPanchadhaMaitri
     },
-
+    
+coupleKarakaComparison: coupleKarakaComparison,
+    
     ashtakoot: calculateAshtakoota(boyMoon, girlMoon)
 });
         
