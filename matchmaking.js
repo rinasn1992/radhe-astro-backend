@@ -882,6 +882,118 @@ function getMarriageAspectDetails(chart, marriageDetails) {
     };
 }
 
+function getMarriageKarakaDetails(chart, marriageDetails) {
+
+    const karakaRules = {
+        venus: {
+            name: 'शुक्र',
+            exalted: 'मीन',
+            debilitated: 'कन्या',
+            ownSigns: ['वृषभ', 'तुला']
+        },
+        jupiter: {
+            name: 'गुरु',
+            exalted: 'कर्क',
+            debilitated: 'मकर',
+            ownSigns: ['धनु', 'मीन']
+        }
+    };
+
+    function getDignity(rashi, rules) {
+
+        if (rashi === rules.exalted) {
+            return 'उच्च';
+        }
+
+        if (rashi === rules.debilitated) {
+            return 'नीच';
+        }
+
+        if (rules.ownSigns.includes(rashi)) {
+            return 'स्वराशि';
+        }
+
+        return 'अन्य राशि - मित्रता परीक्षण शेष';
+    }
+
+    function getPlanetDetails(key, chartType) {
+
+        const planet = chart.planets[key];
+        const rules = karakaRules[key];
+
+        const isD9 = chartType === 'D9';
+
+        const rashi = isD9
+            ? planet.navamshaRashi
+            : planet.rashi;
+
+        const house = isD9
+            ? planet.navamshaHouse
+            : planet.house;
+
+        return {
+            key,
+            name: rules.name,
+            rashi,
+            house,
+            dignity: getDignity(rashi, rules),
+            retrograde: planet.retrograde
+        };
+    }
+
+    const d1SeventhLord =
+        marriageDetails.d1.seventhHouse.lord;
+
+    const d9SeventhLord =
+        marriageDetails.d9.seventhHouse.lord;
+
+    const planetKeyByName = {
+        'सूर्य': 'sun',
+        'चंद्र': 'moon',
+        'मंगल': 'mars',
+        'बुध': 'mercury',
+        'गुरु': 'jupiter',
+        'शुक्र': 'venus',
+        'शनि': 'saturn'
+    };
+
+    const d1SeventhLordKey =
+        planetKeyByName[d1SeventhLord];
+
+    const d9SeventhLordKey =
+        planetKeyByName[d9SeventhLord];
+
+    const result = {
+        d1: {},
+        d9: {}
+    };
+
+    for (const key of ['venus', 'jupiter']) {
+
+        const d1Planet = getPlanetDetails(key, 'D1');
+        const d9Planet = getPlanetDetails(key, 'D9');
+
+        result.d1[key] = {
+            ...d1Planet,
+            sameHouseAsSeventhLord:
+                d1Planet.house ===
+                chart.planets[d1SeventhLordKey].house
+        };
+
+        result.d9[key] = {
+            ...d9Planet,
+            sameHouseAsSeventhLord:
+                d9Planet.house ===
+                chart.planets[d9SeventhLordKey].navamshaHouse
+        };
+    }
+
+    result.method =
+        'D1 and D9 Marriage Karaka Position and Basic Dignity';
+
+    return result;
+}
+
 // ==========================================
 // RADHE ASTRO - ASHTAKOOTA TABLES & HELPERS
 // Reference: Muhurta Chintamani Vivaha Prakarana
@@ -1657,7 +1769,11 @@ const girlMarriage = getMarriageHouseDetails(girlChart);
 
 const girlMarriageAspects =
     getMarriageAspectDetails(girlChart, girlMarriage);
-        
+      const boyMarriageKaraka =
+    getMarriageKarakaDetails(boyChart, boyMarriage);
+
+const girlMarriageKaraka =
+    getMarriageKarakaDetails(girlChart, girlMarriage);  
 return res.status(200).json({
     success: true,
 
@@ -1680,7 +1796,8 @@ return res.status(200).json({
 manglik: boyManglik,
 chart: boyChart,
 marriage: boyMarriage,
-marriageAspects: boyMarriageAspects
+marriageAspects: boyMarriageAspects,
+marriageKaraka: boyMarriageKaraka
     },
 
     girl: {
@@ -1694,7 +1811,8 @@ marriageAspects: boyMarriageAspects
 manglik: girlManglik,
 chart: girlChart,
 marriage: girlMarriage,
-marriageAspects: girlMarriageAspects
+marriageAspects: girlMarriageAspects,
+marriageKaraka: girlMarriageKaraka
     },
 
     ashtakoot: calculateAshtakoota(boyMoon, girlMoon)
