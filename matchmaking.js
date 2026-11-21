@@ -994,6 +994,153 @@ function getMarriageKarakaDetails(chart, marriageDetails) {
     return result;
 }
 
+function getPanchadhaMaitriDetails(chart) {
+
+    const naturalRelations = {
+        sun: {
+            friends: ['moon', 'mars', 'jupiter'],
+            enemies: ['venus', 'saturn']
+        },
+        moon: {
+            friends: ['sun', 'mercury'],
+            enemies: []
+        },
+        mars: {
+            friends: ['sun', 'moon', 'jupiter'],
+            enemies: ['mercury']
+        },
+        mercury: {
+            friends: ['sun', 'venus'],
+            enemies: ['moon']
+        },
+        jupiter: {
+            friends: ['sun', 'moon', 'mars'],
+            enemies: ['venus', 'mercury']
+        },
+        venus: {
+            friends: ['mercury', 'saturn'],
+            enemies: ['sun', 'moon']
+        },
+        saturn: {
+            friends: ['mercury', 'venus'],
+            enemies: ['sun', 'moon', 'mars']
+        }
+    };
+
+    const planetNames = {
+        sun: 'सूर्य',
+        moon: 'चंद्र',
+        mars: 'मंगल',
+        mercury: 'बुध',
+        jupiter: 'गुरु',
+        venus: 'शुक्र',
+        saturn: 'शनि'
+    };
+
+    const temporaryFriendHouses = [2, 3, 4, 10, 11, 12];
+
+    function getNaturalRelation(source, target) {
+
+        const rules = naturalRelations[source];
+
+        if (rules.friends.includes(target)) {
+            return 'मित्र';
+        }
+
+        if (rules.enemies.includes(target)) {
+            return 'शत्रु';
+        }
+
+        return 'सम';
+    }
+
+    function getPanchadhaRelation(natural, temporary) {
+
+        if (natural === 'मित्र' && temporary === 'मित्र') {
+            return 'अधिमित्र';
+        }
+
+        if (natural === 'शत्रु' && temporary === 'शत्रु') {
+            return 'अधिशत्रु';
+        }
+
+        if (
+            (natural === 'मित्र' && temporary === 'शत्रु') ||
+            (natural === 'शत्रु' && temporary === 'मित्र')
+        ) {
+            return 'सम';
+        }
+
+        if (natural === 'सम' && temporary === 'मित्र') {
+            return 'मित्र';
+        }
+
+        if (natural === 'सम' && temporary === 'शत्रु') {
+            return 'शत्रु';
+        }
+
+        return 'सम';
+    }
+
+    function calculateForChart(chartType) {
+
+        const signField =
+            chartType === 'D1'
+                ? 'rashiIndex'
+                : 'navamshaRashiIndex';
+
+        const result = {};
+
+        for (const source of ['venus', 'jupiter']) {
+
+            const sourcePlanet = chart.planets[source];
+
+            result[source] = [];
+
+            for (const target of Object.keys(naturalRelations)) {
+
+                if (source === target) {
+                    continue;
+                }
+
+                const targetPlanet = chart.planets[target];
+
+                const sourceSign = sourcePlanet[signField];
+                const targetSign = targetPlanet[signField];
+
+                const distance =
+                    ((targetSign - sourceSign + 12) % 12) + 1;
+
+                const natural =
+                    getNaturalRelation(source, target);
+
+                const temporary =
+                    temporaryFriendHouses.includes(distance)
+                        ? 'मित्र'
+                        : 'शत्रु';
+
+                result[source].push({
+                    planet: planetNames[target],
+                    naturalRelation: natural,
+                    temporaryRelation: temporary,
+                    relativeHouse: distance,
+                    panchadhaRelation:
+                        getPanchadhaRelation(natural, temporary)
+                });
+            }
+        }
+
+        return result;
+    }
+
+    return {
+        d1: calculateForChart('D1'),
+        d9: calculateForChart('D9'),
+        method:
+            'Parashari Panchadha Graha Maitri - Natural and Temporary Relationships'
+    };
+}
+
 // ==========================================
 // RADHE ASTRO - ASHTAKOOTA TABLES & HELPERS
 // Reference: Muhurta Chintamani Vivaha Prakarana
@@ -1774,6 +1921,13 @@ const girlMarriageAspects =
 
 const girlMarriageKaraka =
     getMarriageKarakaDetails(girlChart, girlMarriage);  
+
+const boyPanchadhaMaitri =
+    getPanchadhaMaitriDetails(boyChart);
+
+const girlPanchadhaMaitri =
+    getPanchadhaMaitriDetails(girlChart);
+        
 return res.status(200).json({
     success: true,
 
@@ -1797,7 +1951,8 @@ manglik: boyManglik,
 chart: boyChart,
 marriage: boyMarriage,
 marriageAspects: boyMarriageAspects,
-marriageKaraka: boyMarriageKaraka
+marriageKaraka: boyMarriageKaraka,
+panchadhaMaitri: boyPanchadhaMaitri
     },
 
     girl: {
@@ -1812,7 +1967,8 @@ manglik: girlManglik,
 chart: girlChart,
 marriage: girlMarriage,
 marriageAspects: girlMarriageAspects,
-marriageKaraka: girlMarriageKaraka
+marriageKaraka: girlMarriageKaraka,
+panchadhaMaitri: girlPanchadhaMaitri
     },
 
     ashtakoot: calculateAshtakoota(boyMoon, girlMoon)
