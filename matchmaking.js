@@ -507,7 +507,8 @@ function getFullChartDetails(
     const navamshaAscIndex =
         getNavamsha(ascLongitude);
 
-    // Traditional seven planets + Moon
+    
+    // Traditional planets + Mean Rahu
     const planetList = [
         { key: 'sun', name: 'सूर्य', body: Body.Sun },
         { key: 'moon', name: 'चंद्र', body: Body.Moon },
@@ -515,7 +516,8 @@ function getFullChartDetails(
         { key: 'mercury', name: 'बुध', body: Body.Mercury },
         { key: 'jupiter', name: 'गुरु', body: Body.Jupiter },
         { key: 'venus', name: 'शुक्र', body: Body.Venus },
-        { key: 'saturn', name: 'शनि', body: Body.Saturn }
+        { key: 'saturn', name: 'शनि', body: Body.Saturn },
+        { key: 'rahu', name: 'राहु', body: Body.MeanNode }
     ];
 
     const planets = {};
@@ -591,6 +593,67 @@ function getFullChartDetails(
                     : null
         };
     }
+
+    // Ketu = Rahu + 180 degrees
+    const rahu = planets.rahu;
+
+    const ketuSiderealLongitude = normalize(
+        rahu.siderealLongitude + 180
+    );
+
+    const ketuTropicalLongitude = normalize(
+        rahu.tropicalLongitude + 180
+    );
+
+    const ketuRashiIndex = Math.floor(
+        ketuSiderealLongitude / 30
+    );
+
+    const ketuRashiDegree =
+        ketuSiderealLongitude % 30;
+
+    const ketuNavamshaIndex =
+        getNavamsha(ketuSiderealLongitude);
+
+    const ketuHouse = (
+        (ketuRashiIndex - ascRashiIndex + 12) % 12
+    ) + 1;
+
+    const ketuNavamshaHouse = (
+        (ketuNavamshaIndex - navamshaAscIndex + 12) % 12
+    ) + 1;
+
+    planets.ketu = {
+        name: 'केतु',
+
+        tropicalLongitude: Number(
+            ketuTropicalLongitude.toFixed(8)
+        ),
+
+        siderealLongitude: Number(
+            ketuSiderealLongitude.toFixed(8)
+        ),
+
+        rashi: RASHIS[ketuRashiIndex],
+        rashiIndex: ketuRashiIndex,
+
+        rashiDegree: Number(
+            ketuRashiDegree.toFixed(6)
+        ),
+
+        house: ketuHouse,
+
+        navamshaRashi: RASHIS[ketuNavamshaIndex],
+        navamshaRashiIndex: ketuNavamshaIndex,
+
+        navamshaLord:
+            GRAHA_LORDS[ketuNavamshaIndex],
+
+        navamshaHouse: ketuNavamshaHouse,
+
+        retrograde: rahu.retrograde
+    };
+    
 
     return {
         calculation: 'Lahiri Sidereal - Whole Sign',
