@@ -428,7 +428,199 @@ function getManglikDetails(
         manglikHouses
     };
 }
+// ==========================================
+// RADHE ASTRO - FULL D1 & D9 CHART DETAILS
+// Lahiri Sidereal + Whole Sign
+// ==========================================
 
+function getFullChartDetails(
+    eph,
+    Body,
+    Ayanamsa,
+    birthUTC,
+    latitude,
+    longitude
+) {
+    const jd = getJulianDate(eph, birthUTC);
+
+    const tt = eph.utToTt(
+        jd,
+        getDecimalYear(birthUTC)
+    );
+
+    const ayanamsha = eph.ayanamsa(
+        Ayanamsa.Lahiri,
+        tt
+    );
+
+    const angles = eph.ascMc(
+        jd,
+        longitude,
+        latitude
+    );
+
+    if (
+        !angles ||
+        !Number.isFinite(angles.asc)
+    ) {
+        throw new Error(
+            'Full chart Ascendant calculation failed.'
+        );
+    }
+
+    const ascLongitude = normalize(
+        angles.asc - ayanamsha
+    );
+
+    const ascRashiIndex = Math.floor(
+        ascLongitude / 30
+    );
+
+    const ascDegree = ascLongitude % 30;
+
+    // D9 Navamsha calculation
+    function getNavamsha(longitudeValue) {
+        const signIndex = Math.floor(
+            longitudeValue / 30
+        );
+
+        const degree = longitudeValue % 30;
+
+        const part = Math.min(
+            8,
+            Math.floor(degree / (30 / 9))
+        );
+
+        let start;
+
+        if (signIndex % 3 === 0) {
+            start = signIndex;
+        } else if (signIndex % 3 === 1) {
+            start = (signIndex + 8) % 12;
+        } else {
+            start = (signIndex + 4) % 12;
+        }
+
+        return (start + part) % 12;
+    }
+
+    const navamshaAscIndex =
+        getNavamsha(ascLongitude);
+
+    // Traditional seven planets + Moon
+    const planetList = [
+        { key: 'sun', name: 'सूर्य', body: Body.Sun },
+        { key: 'moon', name: 'चंद्र', body: Body.Moon },
+        { key: 'mars', name: 'मंगल', body: Body.Mars },
+        { key: 'mercury', name: 'बुध', body: Body.Mercury },
+        { key: 'jupiter', name: 'गुरु', body: Body.Jupiter },
+        { key: 'venus', name: 'शुक्र', body: Body.Venus },
+        { key: 'saturn', name: 'शनि', body: Body.Saturn }
+    ];
+
+    const planets = {};
+
+    for (const planet of planetList) {
+        const position = eph.position(
+            planet.body,
+            jd
+        );
+
+        if (
+            !position ||
+            !Number.isFinite(position.longitude)
+        ) {
+            throw new Error(
+                'Planet position failed: ' + planet.name
+            );
+        }
+
+        const siderealLongitude = normalize(
+            position.longitude - ayanamsha
+        );
+
+        const rashiIndex = Math.floor(
+            siderealLongitude / 30
+        );
+
+        const rashiDegree =
+            siderealLongitude % 30;
+
+        const navamshaIndex =
+            getNavamsha(siderealLongitude);
+
+        const house = (
+            (rashiIndex - ascRashiIndex + 12) % 12
+        ) + 1;
+
+        const navamshaHouse = (
+            (navamshaIndex - navamshaAscIndex + 12) % 12
+        ) + 1;
+
+        planets[planet.key] = {
+            name: planet.name,
+
+            tropicalLongitude: Number(
+                position.longitude.toFixed(8)
+            ),
+
+            siderealLongitude: Number(
+                siderealLongitude.toFixed(8)
+            ),
+
+            rashi: RASHIS[rashiIndex],
+            rashiIndex,
+
+            rashiDegree: Number(
+                rashiDegree.toFixed(6)
+            ),
+
+            house,
+
+            navamshaRashi: RASHIS[navamshaIndex],
+            navamshaRashiIndex: navamshaIndex,
+
+            navamshaLord:
+                GRAHA_LORDS[navamshaIndex],
+
+            navamshaHouse,
+
+            retrograde:
+                Number.isFinite(position.longitudeSpeed)
+                    ? position.longitudeSpeed < 0
+                    : null
+        };
+    }
+
+    return {
+        calculation: 'Lahiri Sidereal - Whole Sign',
+
+        ayanamsha: Number(
+            ayanamsha.toFixed(8)
+        ),
+
+        ascendant: {
+            longitude: Number(
+                ascLongitude.toFixed(8)
+            ),
+
+            rashi: RASHIS[ascRashiIndex],
+            rashiIndex: ascRashiIndex,
+
+            degree: Number(
+                ascDegree.toFixed(6)
+            ),
+
+            navamshaRashi:
+                RASHIS[navamshaAscIndex],
+
+            navamshaRashiIndex:
+                navamshaAscIndex
+        },
+
+        planets
+    };
+}
 // ==========================================
 // RADHE ASTRO - ASHTAKOOTA TABLES & HELPERS
 // Reference: Muhurta Chintamani Vivaha Prakarana
@@ -1179,7 +1371,23 @@ const girlManglik = getManglikDetails(
     girlData.longitude,
     girlMoon
 );
-        
+   const boyChart = getFullChartDetails(
+    eph,
+    Body,
+    Ayanamsa,
+    boyUTC,
+    boyData.latitude,
+    boyData.longitude
+);
+
+const girlChart = getFullChartDetails(
+    eph,
+    Body,
+    Ayanamsa,
+    girlUTC,
+    girlData.latitude,
+    girlData.longitude
+);     
         
 return res.status(200).json({
     success: true,
@@ -1200,7 +1408,8 @@ return res.status(200).json({
         latitude: boyData.latitude,
         longitude: boyData.longitude,
         moon: boyMoon,
-        manglik: boyManglik
+manglik: boyManglik,
+chart: boyChart
     },
 
     girl: {
@@ -1211,7 +1420,8 @@ return res.status(200).json({
         latitude: girlData.latitude,
         longitude: girlData.longitude,
         moon: girlMoon,
-        manglik: girlManglik
+manglik: girlManglik,
+chart: girlChart
     },
 
     ashtakoot: calculateAshtakoota(boyMoon, girlMoon)
