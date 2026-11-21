@@ -634,7 +634,7 @@ function calculateGana(boyMoon, girlMoon) {
         girlNavamshaLord
     );
 
-    const dosha = score < 6;
+    const dosha = score <= 1;
 
     const cancelled = (
         dosha &&
