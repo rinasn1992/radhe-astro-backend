@@ -403,6 +403,34 @@ const GRAHA_MAITRI_MATRIX = [
     [0, 0.5, 0.5, 4, 3, 5, 5]
 ];
 
+// Natural planetary friendship
+// Only mutual friendship is accepted for cancellation.
+
+const NATURAL_FRIENDS = {
+    'सूर्य': ['चंद्र', 'मंगल', 'गुरु'],
+    'चंद्र': ['सूर्य', 'बुध'],
+    'मंगल': ['सूर्य', 'चंद्र', 'गुरु'],
+    'बुध': ['सूर्य', 'शुक्र'],
+    'गुरु': ['सूर्य', 'चंद्र', 'मंगल'],
+    'शुक्र': ['बुध', 'शनि'],
+    'शनि': ['बुध', 'शुक्र']
+};
+
+function areMutualFriends(planetA, planetB) {
+    if (!planetA || !planetB) {
+        return false;
+    }
+
+    if (planetA === planetB) {
+        return true;
+    }
+
+    return (
+        NATURAL_FRIENDS[planetA]?.includes(planetB) &&
+        NATURAL_FRIENDS[planetB]?.includes(planetA)
+    );
+}
+
 // Nakshatra Gana: 0-based nakshatra index
 const GANA_BY_NAKSHATRA = [
     'Deva', 'Manushya', 'Rakshasa',
@@ -573,6 +601,7 @@ function calculateGrahaMaitri(boyMoon, girlMoon) {
     };
 }
 
+
 function calculateGana(boyMoon, girlMoon) {
     const boyGana = GANA_BY_NAKSHATRA[
         boyMoon.nakshatraIndex - 1
@@ -582,16 +611,51 @@ function calculateGana(boyMoon, girlMoon) {
         girlMoon.nakshatraIndex - 1
     ];
 
+    const score = getMatrixScore(
+        GANA_MATRIX,
+        GANA_CLASSES,
+        girlGana,
+        boyGana
+    );
+
+    const boyRashiLord = GRAHA_LORDS[boyMoon.rashiIndex];
+    const girlRashiLord = GRAHA_LORDS[girlMoon.rashiIndex];
+
+    const boyNavamshaLord = boyMoon.navamshaRashiLord;
+    const girlNavamshaLord = girlMoon.navamshaRashiLord;
+
+    const rashiLordsFriendly = areMutualFriends(
+        boyRashiLord,
+        girlRashiLord
+    );
+
+    const navamshaLordsFriendly = areMutualFriends(
+        boyNavamshaLord,
+        girlNavamshaLord
+    );
+
+    const dosha = score < 6;
+
+    const cancelled = (
+        dosha &&
+        rashiLordsFriendly &&
+        navamshaLordsFriendly
+    );
+
     return {
         name: 'गण',
         boyGana,
         girlGana,
-        score: getMatrixScore(
-            GANA_MATRIX,
-            GANA_CLASSES,
-            girlGana,
-            boyGana
-        ),
+        boyRashiLord,
+        girlRashiLord,
+        boyNavamshaLord,
+        girlNavamshaLord,
+        dosha,
+        cancelled,
+        cancellationReason: cancelled
+            ? 'राशि स्वामी और नवांश स्वामी दोनों परस्पर मित्र हैं'
+            : null,
+        score,
         maximum: 6
     };
 }
@@ -606,22 +670,50 @@ function calculateBhakoot(boyMoon, girlMoon) {
     const pair = [girlToBoy, boyToGirl];
 
     const dosha = (
-        pair.includes(2) && pair.includes(12)
-    ) || (
-        pair.includes(5) && pair.includes(9)
-    ) || (
-        pair.includes(6) && pair.includes(8)
+        (pair.includes(2) && pair.includes(12)) ||
+        (pair.includes(5) && pair.includes(9)) ||
+        (pair.includes(6) && pair.includes(8))
+    );
+
+    const boyLord = GRAHA_LORDS[boyRashi];
+    const girlLord = GRAHA_LORDS[girlRashi];
+
+    const mutualFriendship = areMutualFriends(
+        boyLord,
+        girlLord
+    );
+
+    const sameLord = boyLord === girlLord;
+
+    const nadiDosha = (
+        NADI_BY_NAKSHATRA[boyMoon.nakshatraIndex - 1] ===
+        NADI_BY_NAKSHATRA[girlMoon.nakshatraIndex - 1]
+    );
+
+    const cancelled = (
+        dosha &&
+        !nadiDosha &&
+        (sameLord || mutualFriendship)
     );
 
     return {
         name: 'भकूट',
         girlToBoy,
         boyToGirl,
+        boyLord,
+        girlLord,
         dosha,
+        cancelled,
+        cancellationReason: cancelled
+            ? (sameLord
+                ? 'दोनों राशियों के स्वामी समान हैं'
+                : 'दोनों राशि स्वामी परस्पर मित्र हैं')
+            : null,
         score: dosha ? 0 : 7,
         maximum: 7
     };
 }
+
 
 function calculateNadi(boyMoon, girlMoon) {
     const boyNadi = NADI_BY_NAKSHATRA[
@@ -634,11 +726,62 @@ function calculateNadi(boyMoon, girlMoon) {
 
     const dosha = boyNadi === girlNadi;
 
+    // Traditional Nadi Dosha exceptions
+    const sameRashi =
+        boyMoon.rashiIndex === girlMoon.rashiIndex;
+
+    const sameNakshatra =
+        boyMoon.nakshatraIndex === girlMoon.nakshatraIndex;
+
+    const differentNakshatra =
+        !sameNakshatra;
+
+    const differentRashi =
+        !sameRashi;
+
+    const differentPada =
+        boyMoon.pada !== girlMoon.pada;
+
+    const exceptionSameRashiDifferentNakshatra =
+        sameRashi && differentNakshatra;
+
+    const exceptionSameNakshatraDifferentRashi =
+        sameNakshatra && differentRashi;
+
+    const exceptionSameNakshatraDifferentPada =
+        sameNakshatra && sameRashi && differentPada;
+
+    const cancelled = (
+        dosha &&
+        (
+            exceptionSameRashiDifferentNakshatra ||
+            exceptionSameNakshatraDifferentRashi ||
+            exceptionSameNakshatraDifferentPada
+        )
+    );
+
+    let cancellationReason = null;
+
+    if (cancelled) {
+        if (exceptionSameRashiDifferentNakshatra) {
+            cancellationReason =
+                'समान राशि में अलग-अलग नक्षत्र';
+        } else if (exceptionSameNakshatraDifferentRashi) {
+            cancellationReason =
+                'समान नक्षत्र में अलग-अलग राशियाँ';
+        } else {
+            cancellationReason =
+                'समान नक्षत्र और राशि में अलग-अलग पद';
+        }
+    }
+
     return {
         name: 'नाड़ी',
         boyNadi,
         girlNadi,
         dosha,
+        cancelled,
+        cancellationReason,
         score: dosha ? 0 : 8,
         maximum: 8
     };
@@ -647,6 +790,7 @@ function calculateNadi(boyMoon, girlMoon) {
 // ------------------------------------------
 // COMPLETE ASHTAKOOTA CALCULATION
 // ------------------------------------------
+
 
 function calculateAshtakoota(boyMoon, girlMoon) {
     const kootas = [
@@ -660,24 +804,104 @@ function calculateAshtakoota(boyMoon, girlMoon) {
         calculateNadi(boyMoon, girlMoon)
     ];
 
-    const totalScore = Number(
-        kootas.reduce((sum, item) => sum + item.score, 0).toFixed(2)
+    const gana = kootas[5];
+    const bhakoot = kootas[6];
+    const nadi = kootas[7];
+
+    // 1. Apply Nadi exception to Gana Dosha
+    if (nadi.cancelled && gana.dosha) {
+        gana.cancelled = true;
+
+        gana.cancellationReason =
+            'नाड़ी अपवाद के कारण गण दोष भी निरस्त';
+
+        gana.nadiExceptionApplied = true;
+    } else {
+        gana.nadiExceptionApplied = false;
+    }
+
+    // 2. Recheck Bhakoot cancellation
+    // Nadi Dosha must not remain active.
+    const activeNadiDosha =
+        nadi.dosha && !nadi.cancelled;
+
+    const sameRashiLord =
+        bhakoot.boyLord === bhakoot.girlLord;
+
+    const mutualRashiFriendship = areMutualFriends(
+        bhakoot.boyLord,
+        bhakoot.girlLord
     );
 
+    if (
+        bhakoot.dosha &&
+        !activeNadiDosha &&
+        (sameRashiLord || mutualRashiFriendship)
+    ) {
+        bhakoot.cancelled = true;
+
+        bhakoot.cancellationReason = sameRashiLord
+            ? 'समान राशि स्वामी तथा सक्रिय नाड़ी दोष नहीं'
+            : 'राशि स्वामी परस्पर मित्र तथा सक्रिय नाड़ी दोष नहीं';
+    }
+
+    // 3. Calculate original Ashtakoota score
+    // Cancellation does not automatically restore points.
+    const totalScore = Number(
+        kootas.reduce(
+            (sum, item) => sum + item.score,
+            0
+        ).toFixed(2)
+    );
+
+    // 4. Final active dosha status
+    const doshas = {
+        gana: gana.dosha && !gana.cancelled,
+        bhakoot: bhakoot.dosha && !bhakoot.cancelled,
+        nadi: nadi.dosha && !nadi.cancelled
+    };
+
     return {
-        status: 'BASE_CALCULATED_REQUIRES_VALIDATION',
+        status: 'EXCEPTION_CHECKED_REQUIRES_TRADITIONAL_VALIDATION',
+
         method: 'North Indian Ashtakoota - Muhurta Chintamani',
+
         totalScore,
+
         totalMaximumPoints: 36,
+
         kootas,
-        doshas: {
-            bhakoot: kootas[6].dosha,
-            nadi: kootas[7].dosha
+
+        rawDoshas: {
+            gana: gana.dosha,
+            bhakoot: bhakoot.dosha,
+            nadi: nadi.dosha
         },
+
+        doshas,
+
+        cancellations: {
+            gana: {
+                cancelled: !!gana.cancelled,
+                reason: gana.cancellationReason || null
+            },
+
+            bhakoot: {
+                cancelled: !!bhakoot.cancelled,
+                reason: bhakoot.cancellationReason || null
+            },
+
+            nadi: {
+                cancelled: !!nadi.cancelled,
+                reason: nadi.cancellationReason || null
+            }
+        },
+
         note:
-            'Base Ashtakoota scores calculated. Dosha cancellation and final traditional review are not yet applied.'
+            'Base Ashtakoota score is preserved. Traditional exception checks are applied separately. Final horoscope review is still required.'
     };
 }
+
 
 // ------------------------------------------
 // BIRTH DETAILS VALIDATION
