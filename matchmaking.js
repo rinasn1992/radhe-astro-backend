@@ -1247,6 +1247,1263 @@ function getCoupleKarakaComparison(boyChart, girlChart) {
     };
 }
 
+function getManglikDoshaCancellation(manglikDetails, chartDetails) {
+    if (
+        !manglikDetails ||
+        !manglikDetails.fromLagna ||
+        !manglikDetails.fromMoon ||
+        !manglikDetails.fromVenus ||
+        !chartDetails ||
+        !chartDetails.planets
+    ) {
+        throw new Error(
+            'Manglik cancellation: required chart data is missing'
+        );
+    }
+
+    const planets = chartDetails.planets;
+
+    const mars = planets.mars;
+    const jupiter = planets.jupiter;
+    const moon = planets.moon;
+    const venus = planets.venus;
+
+    if (!mars || !jupiter || !moon || !venus) {
+        throw new Error(
+            'Manglik cancellation: Mars, Jupiter, Moon or Venus data missing'
+        );
+    }
+
+    const rawDosha = {
+        fromLagna: manglikDetails.fromLagna.manglikPosition === true,
+        fromMoon: manglikDetails.fromMoon.manglikPosition === true,
+        fromVenus: manglikDetails.fromVenus.manglikPosition === true
+    };
+
+    const rawDoshaPresent = Object.values(rawDosha).some(Boolean);
+
+    const fullCancellations = [];
+    const partialMitigations = [];
+
+    // --------------------------------------------------
+    // IMPORTANT:
+    // No raw Manglik dosha means no cancellation claim.
+    // --------------------------------------------------
+
+    if (!rawDoshaPresent) {
+        return {
+            method: 'North Indian Extended Manglik Analysis',
+
+            rawManglikStatus: rawDosha,
+
+            rawDoshaPresent: false,
+
+            cancellationStatus: 'NO_DOSHA_PRESENT',
+
+            fullCancellations: [],
+
+            partialMitigations: [],
+
+            evidenceSummary: {
+                fullCancellationCount: 0,
+                partialMitigationCount: 0
+            },
+
+            interpretation:
+                'निर्धारित लग्न, चंद्र और शुक्र संदर्भों में मूल मांगलिक दोष नहीं मिला। इसलिए दोष-भंग की आवश्यकता नहीं है।',
+
+            importantNote:
+                'दोष न होना और दोष-भंग होना दो अलग स्थितियाँ हैं।'
+        };
+    }
+
+    function addMitigation(id, rule, source, reason) {
+        partialMitigations.push({
+            id,
+            rule,
+            source,
+            reason,
+            classification: 'POTENTIAL_MITIGATION',
+            fullCancellationConfirmed: false
+        });
+    }
+
+    const marsSign = mars.rashiIndex;
+
+    if (!Number.isInteger(marsSign)) {
+        throw new Error(
+            'Manglik cancellation: invalid Mars sign index'
+        );
+    }
+
+    const marsHouseFromLagna =
+        manglikDetails.fromLagna.marsHouse;
+
+    // --------------------------------------------------
+    // RULE 1: Traditional house-sign exceptions
+    // Applied only when Manglik dosha exists from Lagna.
+    // --------------------------------------------------
+
+    const houseSignExceptions = {
+        2: [2, 5],       // Gemini, Virgo
+        4: [0, 7],       // Aries, Scorpio
+        7: [3, 9],       // Cancer, Capricorn
+        8: [8, 11],      // Sagittarius, Pisces
+        12: [1, 6]       // Taurus, Libra
+    };
+
+    if (rawDosha.fromLagna) {
+        const exemptSigns =
+            houseSignExceptions[marsHouseFromLagna] || [];
+
+        if (exemptSigns.includes(marsSign)) {
+            addMitigation(
+                'RAMAN_HOUSE_SIGN_EXCEPTION',
+                'भाव-राशि आधारित पारंपरिक अपवाद',
+                'B. V. Raman, Muhurtha',
+                `लग्न से मंगल ${marsHouseFromLagna}वें भाव में ${mars.rashi} राशि में है। इस परंपरा में इस भाव-राशि संयोजन को अपवाद माना जाता है।`
+            );
+        }
+    }
+
+    // --------------------------------------------------
+    // RULE 2: Mars in Leo or Aquarius
+    // Keep as a separate traditional candidate.
+    // Do not automatically cancel raw dosha.
+    // --------------------------------------------------
+
+    if ([4, 10].includes(marsSign)) {
+        addMitigation(
+            'RAMAN_LEO_AQUARIUS_RULE',
+            'सिंह अथवा कुंभ राशि में मंगल',
+            'Traditional rule requiring source-specific verification',
+            `मंगल ${mars.rashi} राशि में है। इस नियम को संभावित परिहार संकेत के रूप में दर्ज किया गया है, पूर्ण दोष-भंग के रूप में नहीं।`
+        );
+    }
+
+    // --------------------------------------------------
+    // RULE 3: Mars and Jupiter conjunction
+    // --------------------------------------------------
+
+    if (marsSign === jupiter.rashiIndex) {
+        addMitigation(
+            'MARS_JUPITER_CONJUNCTION',
+            'मंगल-गुरु युति',
+            'Traditional benefic association; requires rule-specific validation',
+            `मंगल और गुरु दोनों ${mars.rashi} राशि में स्थित हैं।`
+        );
+    }
+
+    // --------------------------------------------------
+    // RULE 4: Jupiter aspect on Mars
+    // Parashari Jupiter aspects: 5, 7, 9
+    // --------------------------------------------------
+
+    const jupiterToMarsDistance =
+        ((marsSign - jupiter.rashiIndex + 12) % 12) + 1;
+
+    if ([5, 7, 9].includes(jupiterToMarsDistance)) {
+        addMitigation(
+            'JUPITER_ASPECT_ON_MARS',
+            'मंगल पर गुरु की विशेष दृष्टि',
+            'Parashari Jupiter aspect calculation',
+            `गुरु से मंगल ${jupiterToMarsDistance}वीं राशि में है। गुरु की ${jupiterToMarsDistance}वीं दृष्टि मंगल पर पड़ती है।`
+        );
+    }
+
+    // --------------------------------------------------
+    // RULE 5: Mars and Moon conjunction
+    // --------------------------------------------------
+
+    if (marsSign === moon.rashiIndex) {
+        addMitigation(
+            'MARS_MOON_CONJUNCTION',
+            'मंगल-चंद्र युति',
+            'Traditional rule requiring source-specific validation',
+            `मंगल और चंद्रमा दोनों ${mars.rashi} राशि में स्थित हैं।`
+        );
+    }
+
+    // --------------------------------------------------
+    // RULE 6: Jupiter in D1 Lagna
+    // --------------------------------------------------
+
+    if (jupiter.house === 1) {
+        addMitigation(
+            'JUPITER_IN_LAGNA',
+            'लग्न में गुरु',
+            'Traditional rule requiring source-specific validation',
+            'जन्म कुंडली के प्रथम भाव में गुरु स्थित है।'
+        );
+    }
+
+    // --------------------------------------------------
+    // RULE 7: Venus in D1 Lagna
+    // --------------------------------------------------
+
+    if (venus.house === 1) {
+        addMitigation(
+            'VENUS_IN_LAGNA',
+            'लग्न में शुक्र',
+            'Traditional rule requiring source-specific validation',
+            'जन्म कुंडली के प्रथम भाव में शुक्र स्थित है।'
+        );
+    }
+
+    // --------------------------------------------------
+    // RULE 8: Mars in own or exaltation sign
+    // This is supporting information, not automatic cancellation.
+    // --------------------------------------------------
+
+    if ([0, 7, 9].includes(marsSign)) {
+        let reason;
+
+        if (marsSign === 0) {
+            reason = 'मंगल अपनी मेष राशि में स्थित है।';
+        } else if (marsSign === 7) {
+            reason = 'मंगल अपनी वृश्चिक राशि में स्थित है।';
+        } else {
+            reason = 'मंगल अपनी उच्च मकर राशि में स्थित है।';
+        }
+
+        addMitigation(
+            'MARS_STRONG_SIGN',
+            'मंगल की राशि-स्थिति',
+            'Planetary dignity assessment',
+            reason + ' इसे अपने आप पूर्ण मांगलिक दोष-भंग नहीं माना गया है।'
+        );
+    }
+
+    // --------------------------------------------------
+    // FINAL STATUS
+    // No full cancellation is declared automatically.
+    // --------------------------------------------------
+
+    const cancellationStatus =
+        partialMitigations.length > 0
+            ? 'POTENTIAL_MITIGATION_REQUIRES_VALIDATION'
+            : 'NO_CANCELLATION_RULE_FOUND';
+
+    return {
+        method: 'North Indian Extended Manglik Analysis',
+
+        rawManglikStatus: rawDosha,
+
+        rawDoshaPresent: true,
+
+        cancellationStatus,
+
+        fullCancellations,
+
+        partialMitigations,
+
+        evidenceSummary: {
+            fullCancellationCount: 0,
+            partialMitigationCount: partialMitigations.length
+        },
+
+        interpretation:
+            partialMitigations.length > 0
+                ? 'मूल मांगलिक दोष मौजूद है। कुछ संभावित पारंपरिक शमन संकेत मिले हैं, लेकिन अभी पूर्ण दोष-भंग प्रमाणित नहीं है।'
+                : 'मूल मांगलिक दोष मौजूद है। जाँचे गए नियमों में कोई संभावित परिहार संकेत नहीं मिला।',
+
+        importantNote:
+            'मूल मांगलिक स्थिति सुरक्षित रखी गई है। संभावित शमन संकेत को पूर्ण दोष-भंग नहीं माना गया है। प्रत्येक नियम की परंपरा और प्रमाण अलग से सत्यापित करना आवश्यक है।'
+    };
+}
+
+
+function getManglikSeverity(
+    manglikDetails,
+    chartDetails,
+    cancellationDetails
+) {
+    if (!manglikDetails || !chartDetails ||
+        !chartDetails.planets) {
+        throw new Error(
+            'Manglik severity: required chart data is missing'
+        );
+    }
+
+    const mars = chartDetails.planets.mars;
+
+    if (!mars) {
+        throw new Error(
+            'Manglik severity: Mars data is missing'
+        );
+    }
+
+    const references = [
+        {
+            name: 'Lagna',
+            hindiName: 'जन्म लग्न',
+            result: manglikDetails.fromLagna
+        },
+        {
+            name: 'Moon',
+            hindiName: 'चंद्र लग्न',
+            result: manglikDetails.fromMoon
+        },
+        {
+            name: 'Venus',
+            hindiName: 'शुक्र लग्न',
+            result: manglikDetails.fromVenus
+        }
+    ];
+
+    const affectedReferences = references
+        .filter(item =>
+            item.result &&
+            item.result.manglikPosition === true
+        )
+        .map(item => ({
+            reference: item.name,
+            referenceHindi: item.hindiName,
+            marsHouse: item.result.marsHouse,
+            manglikPosition: true
+        }));
+
+    const unaffectedReferences = references
+        .filter(item =>
+            item.result &&
+            item.result.manglikPosition === false
+        )
+        .map(item => ({
+            reference: item.name,
+            referenceHindi: item.hindiName,
+            marsHouse: item.result.marsHouse,
+            manglikPosition: false
+        }));
+
+    const affectedCount = affectedReferences.length;
+
+    // --------------------------------------------------
+    // INTENSITY CLASSIFICATION
+    // This is an analytical coverage classification,
+    // not a universal classical numerical scale.
+    // --------------------------------------------------
+
+    let intensityLevel = 'NONE';
+    let intensityHindi = 'मांगलिक दोष का संकेत नहीं';
+
+    if (affectedCount === 1) {
+        intensityLevel = 'LIMITED';
+        intensityHindi = 'सीमित मांगलिक संकेत';
+    } else if (affectedCount === 2) {
+        intensityLevel = 'MODERATE';
+        intensityHindi = 'दो संदर्भों से मांगलिक संकेत';
+    } else if (affectedCount === 3) {
+        intensityLevel = 'WIDESPREAD';
+        intensityHindi = 'तीनों संदर्भों से मांगलिक संकेत';
+    }
+
+    // --------------------------------------------------
+    // MARS POSITION AND CONDITION
+    // --------------------------------------------------
+
+    const ownSigns = [0, 7]; // Aries, Scorpio
+    const exaltedSign = 9;   // Capricorn
+
+    let signCondition = 'OTHER_SIGN';
+    let signConditionHindi = 'अन्य राशि';
+
+    if (ownSigns.includes(mars.rashiIndex)) {
+        signCondition = 'OWN_SIGN';
+        signConditionHindi = 'स्वराशि';
+    } else if (mars.rashiIndex === exaltedSign) {
+        signCondition = 'EXALTED';
+        signConditionHindi = 'उच्च राशि';
+    } else if (mars.rashiIndex === 3) {
+        signCondition = 'DEBILITATED';
+        signConditionHindi = 'नीच राशि';
+    }
+
+    const marsCondition = {
+        sign: mars.rashi,
+        signIndex: mars.rashiIndex,
+        house: mars.house,
+        degreeInSign: mars.rashiDegree,
+        retrograde: mars.retrograde,
+        signCondition,
+        signConditionHindi
+    };
+
+    // --------------------------------------------------
+    // NAVAMSHA POSITION
+    // --------------------------------------------------
+
+    const navamshaPosition = {
+        sign: mars.navamshaRashi,
+        signIndex: mars.navamshaRashiIndex,
+        house: mars.navamshaHouse,
+        lord: mars.navamshaLord
+    };
+
+    // --------------------------------------------------
+    // CANCELLATION STATUS
+    // Raw dosha and cancellation evidence remain separate.
+    // --------------------------------------------------
+
+    let cancellationStatus = 'NOT_AVAILABLE';
+
+    if (cancellationDetails) {
+        cancellationStatus =
+            cancellationDetails.cancellationStatus ||
+            'NOT_AVAILABLE';
+    }
+
+    let residualAssessment =
+        'दोष की मूल स्थिति दर्ज है; दोष-भंग का अलग मूल्यांकन आवश्यक है।';
+
+    if (
+        cancellationStatus ===
+        'TRADITIONAL_CANCELLATION_RULES_FOUND'
+    ) {
+        residualAssessment =
+            'दोष-भंग के कुछ पारंपरिक नियम लागू पाए गए हैं। उनकी प्रमाणिकता और प्रभाव की अलग समीक्षा आवश्यक है।';
+    } else if (
+        cancellationStatus === 'PARTIAL_MITIGATION_ONLY'
+    ) {
+        residualAssessment =
+            'आंशिक शमन के संकेत मिले हैं; मूल मांगलिक स्थिति बनी रहती है।';
+    }
+
+    // --------------------------------------------------
+    // FINAL OUTPUT
+    // --------------------------------------------------
+
+    return {
+        method: 'North Indian Extended Manglik Analysis',
+
+        classificationBasis:
+            'लग्न, चंद्र और शुक्र से दोष की उपस्थिति के आधार पर संकेतों का विस्तार। यह सार्वभौमिक शास्त्रीय अंक-पद्धति नहीं है।',
+
+        intensityLevel,
+        intensityHindi,
+
+        referenceSummary: {
+            totalReferencesChecked: 3,
+            affectedReferences: affectedCount,
+            unaffectedReferences: unaffectedReferences.length,
+            affectedDetails: affectedReferences,
+            unaffectedDetails: unaffectedReferences
+        },
+
+        marsCondition,
+        navamshaPosition,
+
+        cancellationStatus,
+        residualAssessment,
+
+        interpretationNotes: [
+            'तीनों संदर्भों की जाँच स्वतंत्र रूप से की गई है।',
+            'संदर्भों की संख्या को मंगल की तीव्रता का सार्वभौमिक शास्त्रीय माप नहीं माना गया है।',
+            'मंगल की स्वराशि, उच्च राशि, नीच राशि और वक्री स्थिति अलग-अलग तथ्य हैं।',
+            'नवांश स्थिति को सहायक जानकारी के रूप में रखा गया है।',
+            'दोष-भंग मिलने पर भी मूल मांगलिक स्थिति को मिटाया नहीं गया है।'
+        ]
+    };
+}
+
+function compareCoupleManglik(
+    boyManglik,
+    girlManglik,
+    boySeverity,
+    girlSeverity,
+    boyCancellation,
+    girlCancellation,
+    boyChart,
+    girlChart
+) {
+    const required = [
+        boyManglik,
+        girlManglik,
+        boySeverity,
+        girlSeverity,
+        boyChart,
+        girlChart
+    ];
+
+    if (required.some(item => !item)) {
+        throw new Error(
+            'Couple Manglik comparison: required data missing'
+        );
+    }
+
+    const references = [
+        {
+            key: 'fromLagna',
+            name: 'Lagna',
+            hindi: 'जन्म लग्न'
+        },
+        {
+            key: 'fromMoon',
+            name: 'Moon',
+            hindi: 'चंद्र लग्न'
+        },
+        {
+            key: 'fromVenus',
+            name: 'Venus',
+            hindi: 'शुक्र लग्न'
+        }
+    ];
+
+    const boyAffected = [];
+    const girlAffected = [];
+    const commonAffected = [];
+    const boyOnlyAffected = [];
+    const girlOnlyAffected = [];
+
+    const referenceComparison = references.map(ref => {
+        const boyResult = boyManglik[ref.key];
+        const girlResult = girlManglik[ref.key];
+
+        const boyHasDosha =
+            !!(boyResult && boyResult.manglikPosition);
+
+        const girlHasDosha =
+            !!(girlResult && girlResult.manglikPosition);
+
+        if (boyHasDosha) {
+            boyAffected.push(ref.hindi);
+        }
+
+        if (girlHasDosha) {
+            girlAffected.push(ref.hindi);
+        }
+
+        if (boyHasDosha && girlHasDosha) {
+            commonAffected.push(ref.hindi);
+        } else if (boyHasDosha) {
+            boyOnlyAffected.push(ref.hindi);
+        } else if (girlHasDosha) {
+            girlOnlyAffected.push(ref.hindi);
+        }
+
+        return {
+            reference: ref.name,
+            referenceHindi: ref.hindi,
+
+            boy: {
+                manglikPosition: boyHasDosha,
+                marsHouse: boyResult
+                    ? boyResult.marsHouse
+                    : null
+            },
+
+            girl: {
+                manglikPosition: girlHasDosha,
+                marsHouse: girlResult
+                    ? girlResult.marsHouse
+                    : null
+            },
+
+            sameStatus: boyHasDosha === girlHasDosha
+        };
+    });
+
+    // --------------------------------------------------
+    // RAW DOSHA COMPARISON
+    // --------------------------------------------------
+
+    const boyHasRawDosha = boyAffected.length > 0;
+    const girlHasRawDosha = girlAffected.length > 0;
+
+    let coupleStatus;
+    let coupleStatusHindi;
+
+    if (boyHasRawDosha && girlHasRawDosha) {
+        coupleStatus = 'BOTH_HAVE_MANGLIK_INDICATIONS';
+        coupleStatusHindi =
+            'दोनों की कुंडलियों में मांगलिक दोष के संकेत हैं।';
+    } else if (boyHasRawDosha) {
+        coupleStatus = 'BOY_ONLY_HAS_MANGLIK_INDICATIONS';
+        coupleStatusHindi =
+            'लड़के की कुंडली में मांगलिक दोष के संकेत हैं। लड़की की कुंडली में इन संदर्भों से दोष नहीं मिला।';
+    } else if (girlHasRawDosha) {
+        coupleStatus = 'GIRL_ONLY_HAS_MANGLIK_INDICATIONS';
+        coupleStatusHindi =
+            'लड़की की कुंडली में मांगलिक दोष के संकेत हैं। लड़के की कुंडली में इन संदर्भों से दोष नहीं मिला।';
+    } else {
+        coupleStatus = 'NEITHER_HAS_MANGLIK_INDICATIONS';
+        coupleStatusHindi =
+            'दोनों की कुंडलियों में निर्धारित तीन संदर्भों से मांगलिक दोष का संकेत नहीं मिला।';
+    }
+
+    // --------------------------------------------------
+    // SEVERITY COMPARISON
+    // --------------------------------------------------
+
+    const boyIntensity =
+        boySeverity.intensityLevel || 'NOT_AVAILABLE';
+
+    const girlIntensity =
+        girlSeverity.intensityLevel || 'NOT_AVAILABLE';
+
+    const sameIntensity = boyIntensity === girlIntensity;
+
+    // --------------------------------------------------
+    // CANCELLATION COMPARISON
+    // --------------------------------------------------
+
+    function getCancellationSummary(details) {
+        return {
+            status: details
+                ? details.cancellationStatus
+                : 'NOT_AVAILABLE',
+
+            fullCancellationCount: details &&
+                Array.isArray(details.fullCancellations)
+                ? details.fullCancellations.length
+                : 0,
+
+            partialMitigationCount: details &&
+                Array.isArray(details.partialMitigations)
+                ? details.partialMitigations.length
+                : 0
+        };
+    }
+
+    const boyCancellationSummary =
+        getCancellationSummary(boyCancellation);
+
+    const girlCancellationSummary =
+        getCancellationSummary(girlCancellation);
+
+    // --------------------------------------------------
+    // MARS POSITION COMPARISON
+    // --------------------------------------------------
+
+    const boyMars = boyChart.planets.mars;
+    const girlMars = girlChart.planets.mars;
+
+    if (!boyMars || !girlMars) {
+        throw new Error(
+            'Couple Manglik comparison: Mars chart data missing'
+        );
+    }
+
+    const marsPositionComparison = {
+        boy: {
+            sign: boyMars.rashi,
+            signIndex: boyMars.rashiIndex,
+            house: boyMars.house,
+            degree: boyMars.rashiDegree,
+            retrograde: boyMars.retrograde
+        },
+
+        girl: {
+            sign: girlMars.rashi,
+            signIndex: girlMars.rashiIndex,
+            house: girlMars.house,
+            degree: girlMars.rashiDegree,
+            retrograde: girlMars.retrograde
+        },
+
+        sameSign:
+            boyMars.rashiIndex === girlMars.rashiIndex,
+
+        sameHouse:
+            boyMars.house === girlMars.house
+    };
+
+    // --------------------------------------------------
+    // FINAL COMPARATIVE ASSESSMENT
+    // --------------------------------------------------
+
+    let comparisonAssessment;
+
+    if (!boyHasRawDosha && !girlHasRawDosha) {
+        comparisonAssessment =
+            'निर्धारित नियमों के अनुसार दोनों में मूल मांगलिक संकेत नहीं मिले।';
+    } else if (boyHasRawDosha && girlHasRawDosha) {
+        comparisonAssessment =
+            'दोनों में मांगलिक संकेत मौजूद हैं। समानता का परीक्षण प्रत्येक संदर्भ और दोष-भंग के प्रमाण के आधार पर किया गया है।';
+    } else {
+        comparisonAssessment =
+            'दोनों की मांगलिक स्थिति में अंतर है। केवल इसी अंतर से विवाह को अनुचित घोषित नहीं किया जा सकता।';
+    }
+
+    return {
+        method: 'North Indian Extended Manglik Couple Comparison',
+
+        coupleStatus,
+        coupleStatusHindi,
+
+        rawDoshaComparison: {
+            boyHasRawDosha,
+            girlHasRawDosha,
+            boyAffectedReferences: boyAffected,
+            girlAffectedReferences: girlAffected,
+            commonAffectedReferences: commonAffected,
+            boyOnlyAffectedReferences: boyOnlyAffected,
+            girlOnlyAffectedReferences: girlOnlyAffected,
+            matchingReferenceCount: commonAffected.length
+        },
+
+        referenceComparison,
+
+        severityComparison: {
+            boy: {
+                level: boyIntensity,
+                hindi: boySeverity.intensityHindi
+            },
+
+            girl: {
+                level: girlIntensity,
+                hindi: girlSeverity.intensityHindi
+            },
+
+            sameIntensity
+        },
+
+        cancellationComparison: {
+            boy: boyCancellationSummary,
+            girl: girlCancellationSummary
+        },
+
+        marsPositionComparison,
+
+        comparisonAssessment,
+
+        importantNote:
+            'यह तुलनात्मक ज्योतिषीय विश्लेषण है। समान मांगलिक स्थिति अपने आप दोष-भंग नहीं होती और अलग स्थिति अपने आप विवाह में बाधा सिद्ध नहीं करती। अंतिम निष्कर्ष के लिए सप्तम भाव, सप्तमेश, शुक्र, गुरु, नवांश और अष्टकूट का संयुक्त परीक्षण आवश्यक है।'
+    };
+            }
+
+
+function getManglikEvidence(
+    manglikDetails,
+    chartDetails,
+    cancellationDetails,
+    severityDetails,
+    personLabel = 'व्यक्ति'
+) {
+    if (
+        !manglikDetails ||
+        !chartDetails ||
+        !chartDetails.planets ||
+        !chartDetails.planets.mars ||
+        !cancellationDetails ||
+        !severityDetails
+    ) {
+        throw new Error(
+            'Manglik evidence: required analysis data is missing'
+        );
+    }
+
+    const mars = chartDetails.planets.mars;
+
+    const references = [
+        {
+            key: 'fromLagna',
+            name: 'जन्म लग्न',
+            details: manglikDetails.fromLagna
+        },
+        {
+            key: 'fromMoon',
+            name: 'चंद्र लग्न',
+            details: manglikDetails.fromMoon
+        },
+        {
+            key: 'fromVenus',
+            name: 'शुक्र लग्न',
+            details: manglikDetails.fromVenus
+        }
+    ];
+
+    const doshaEvidence = [];
+    const nonDoshaEvidence = [];
+
+    // --------------------------------------------------
+    // 1. RAW MANGLIK POSITION EVIDENCE
+    // --------------------------------------------------
+
+    references.forEach(reference => {
+        const result = reference.details;
+
+        if (!result) {
+            return;
+        }
+
+        const evidence = {
+            reference: reference.key,
+            referenceHindi: reference.name,
+            marsHouse: result.marsHouse,
+            checkedHouses: result.manglikHouses || [
+                1, 2, 4, 7, 8, 12
+            ],
+            manglikPosition:
+                result.manglikPosition === true
+        };
+
+        if (result.manglikPosition === true) {
+            doshaEvidence.push({
+                ...evidence,
+                conclusion: 'MANGLIK_POSITION_FOUND',
+                explanation:
+                    `मंगल ${reference.name} से ${result.marsHouse}वें भाव में है। यह निर्धारित मांगलिक भावों में आता है।`
+            });
+        } else {
+            nonDoshaEvidence.push({
+                ...evidence,
+                conclusion: 'MANGLIK_POSITION_NOT_FOUND',
+                explanation:
+                    `मंगल ${reference.name} से ${result.marsHouse}वें भाव में है। यह निर्धारित मांगलिक भावों में नहीं आता।`
+            });
+        }
+    });
+
+    // --------------------------------------------------
+    // 2. MARS PLANETARY POSITION EVIDENCE
+    // --------------------------------------------------
+
+    const marsPositionEvidence = {
+        planet: 'Mars',
+        planetHindi: 'मंगल',
+        sign: mars.rashi || null,
+        signIndex: Number.isInteger(mars.rashiIndex)
+            ? mars.rashiIndex
+            : null,
+        house: Number.isInteger(mars.house)
+            ? mars.house
+            : null,
+        degreeInSign:
+            mars.rashiDegree !== undefined
+                ? mars.rashiDegree
+                : null,
+        retrograde:
+            typeof mars.retrograde === 'boolean'
+                ? mars.retrograde
+                : null,
+        navamsha: {
+            sign: mars.navamshaRashi || null,
+            signIndex:
+                Number.isInteger(mars.navamshaRashiIndex)
+                    ? mars.navamshaRashiIndex
+                    : null,
+            house:
+                Number.isInteger(mars.navamshaHouse)
+                    ? mars.navamshaHouse
+                    : null,
+            lord: mars.navamshaLord || null
+        }
+    };
+
+    // --------------------------------------------------
+    // 3. CANCELLATION / MITIGATION EVIDENCE
+    // --------------------------------------------------
+
+    const fullCancellations =
+        Array.isArray(cancellationDetails.fullCancellations)
+            ? cancellationDetails.fullCancellations
+            : [];
+
+    const partialMitigations =
+        Array.isArray(cancellationDetails.partialMitigations)
+            ? cancellationDetails.partialMitigations
+            : [];
+
+    const cancellationEvidence = {
+        status:
+            cancellationDetails.cancellationStatus || 'NOT_AVAILABLE',
+
+        rawDoshaPresent:
+            cancellationDetails.rawDoshaPresent === true,
+
+        fullCancellations: fullCancellations.map(item => ({
+            id: item.id,
+            rule: item.rule,
+            source: item.source,
+            reason: item.reason
+        })),
+
+        partialMitigations: partialMitigations.map(item => ({
+            id: item.id,
+            rule: item.rule,
+            source: item.source,
+            reason: item.reason,
+            classification:
+                item.classification || 'REQUIRES_VALIDATION',
+            fullCancellationConfirmed:
+                item.fullCancellationConfirmed === true
+        })),
+
+        confirmedFullCancellationCount:
+            fullCancellations.length,
+
+        potentialMitigationCount:
+            partialMitigations.length
+    };
+
+    // --------------------------------------------------
+    // 4. SEVERITY EVIDENCE
+    // --------------------------------------------------
+
+    const severityEvidence = {
+        level: severityDetails.intensityLevel || 'NOT_AVAILABLE',
+
+        hindi:
+            severityDetails.intensityHindi || 'उपलब्ध नहीं',
+
+        classificationBasis:
+            severityDetails.classificationBasis || null,
+
+        affectedReferences:
+            severityDetails.referenceSummary
+                ? severityDetails.referenceSummary.affectedDetails
+                : [],
+
+        marsCondition:
+            severityDetails.marsCondition || null,
+
+        residualAssessment:
+            severityDetails.residualAssessment || null
+    };
+
+    // --------------------------------------------------
+    // 5. EVIDENCE QUALITY AND LIMITATIONS
+    // --------------------------------------------------
+
+    const limitations = [
+        'मांगलिक दोष की मूल स्थिति और दोष-भंग अलग-अलग परिणाम हैं।',
+        'संभावित शमन संकेत को स्वतः पूर्ण दोष-भंग नहीं माना गया है।',
+        'अलग-अलग ज्योतिषीय परंपराओं के नियमों को एक समान शास्त्रीय नियम नहीं माना गया है।',
+        'नवांश स्थिति सहायक प्रमाण है; केवल इसके आधार पर दोष-भंग घोषित नहीं किया गया है।',
+        'अंतिम विवाह निष्कर्ष के लिए दोनों कुंडलियों के अन्य विवाह संकेतों का संयुक्त परीक्षण आवश्यक है।'
+    ];
+
+    // --------------------------------------------------
+    // 6. FINAL EVIDENCE SUMMARY
+    // --------------------------------------------------
+
+    let evidenceConclusion;
+
+    if (doshaEvidence.length === 0) {
+        evidenceConclusion =
+            'निर्धारित तीनों संदर्भों से मांगलिक दोष का प्रमाण नहीं मिला।';
+    } else if (partialMitigations.length > 0) {
+        evidenceConclusion =
+            'मांगलिक दोष के प्रमाण मिले हैं और कुछ संभावित शमन संकेत भी मिले हैं। पूर्ण दोष-भंग अभी प्रमाणित नहीं है।';
+    } else {
+        evidenceConclusion =
+            'मांगलिक दोष के प्रमाण मिले हैं। जाँचे गए नियमों में कोई संभावित शमन संकेत नहीं मिला।';
+    }
+
+    return {
+        person: personLabel,
+
+        method: 'North Indian Extended Manglik Evidence Analysis',
+
+        rawDoshaEvidence: {
+            totalReferencesChecked: references.length,
+            doshaFoundCount: doshaEvidence.length,
+            doshaNotFoundCount: nonDoshaEvidence.length,
+            details: doshaEvidence,
+            unaffectedReferences: nonDoshaEvidence
+        },
+
+        marsPositionEvidence,
+
+        cancellationEvidence,
+
+        severityEvidence,
+
+        evidenceConclusion,
+
+        limitations,
+
+        importantNote:
+            'यह गणना-आधारित ज्योतिषीय प्रमाण रिपोर्ट है। जिन परिहार नियमों का स्रोत या परंपरा अभी पूर्ण रूप से सत्यापित नहीं है, उन्हें संभावित शमन के रूप में ही दिखाया गया है।'
+    };
+}
+
+
+function getFinalMarriageConclusion(
+    ashtakootDetails,
+    boyManglikEvidence,
+    girlManglikEvidence,
+    coupleManglikComparison,
+    boyMarriageDetails,
+    girlMarriageDetails,
+    boyAspectDetails,
+    girlAspectDetails,
+    boyKarakaDetails,
+    girlKarakaDetails,
+    coupleKarakaComparison
+) {
+    const required = [
+        ashtakootDetails,
+        boyManglikEvidence,
+        girlManglikEvidence,
+        coupleManglikComparison,
+        boyMarriageDetails,
+        girlMarriageDetails,
+        boyAspectDetails,
+        girlAspectDetails,
+        boyKarakaDetails,
+        girlKarakaDetails,
+        coupleKarakaComparison
+    ];
+
+    if (required.some(item => !item)) {
+        throw new Error(
+            'Final marriage conclusion: required analysis data missing'
+        );
+    }
+
+    // --------------------------------------------------
+    // 1. ASHTAKOOT SUMMARY
+    // --------------------------------------------------
+
+    const ashtakootScore =
+        Number.isFinite(ashtakootDetails.score)
+            ? ashtakootDetails.score
+            : null;
+
+    const ashtakootSummary = {
+        score: ashtakootScore,
+        maximumScore: 36,
+        status: ashtakootDetails.status || 'NOT_AVAILABLE',
+        doshas: ashtakootDetails.doshas || {},
+        cancellations: ashtakootDetails.cancellations || {},
+        rawDoshas: ashtakootDetails.rawDoshas || {}
+    };
+
+    // --------------------------------------------------
+    // 2. MANGLIK SUMMARY
+    // --------------------------------------------------
+
+    const boyManglik = {
+        conclusion:
+            boyManglikEvidence.evidenceConclusion,
+
+        rawDosha:
+            boyManglikEvidence.rawDoshaEvidence,
+
+        cancellation:
+            boyManglikEvidence.cancellationEvidence,
+
+        severity:
+            boyManglikEvidence.severityEvidence
+    };
+
+    const girlManglik = {
+        conclusion:
+            girlManglikEvidence.evidenceConclusion,
+
+        rawDosha:
+            girlManglikEvidence.rawDoshaEvidence,
+
+        cancellation:
+            girlManglikEvidence.cancellationEvidence,
+
+        severity:
+            girlManglikEvidence.severityEvidence
+    };
+
+    const manglikSummary = {
+        comparisonStatus:
+            coupleManglikComparison.coupleStatus,
+
+        comparisonHindi:
+            coupleManglikComparison.coupleStatusHindi,
+
+        boy: boyManglik,
+        girl: girlManglik,
+
+        referenceComparison:
+            coupleManglikComparison.referenceComparison,
+
+        comparisonAssessment:
+            coupleManglikComparison.comparisonAssessment
+    };
+
+    // --------------------------------------------------
+    // 3. SEVENTH HOUSE AND SEVENTH LORD
+    // --------------------------------------------------
+
+    const marriageHouseSummary = {
+        boy: {
+            D1: boyMarriageDetails.d1 || null,
+            D9: boyMarriageDetails.d9 || null
+        },
+
+        girl: {
+            D1: girlMarriageDetails.d1 || null,
+            D9: girlMarriageDetails.d9 || null
+        }
+    };
+
+    // --------------------------------------------------
+    // 4. MARRIAGE ASPECTS
+    // --------------------------------------------------
+
+    const aspectSummary = {
+        boy: {
+            D1: boyAspectDetails.d1 || null,
+            D9: boyAspectDetails.d9 || null
+        },
+
+        girl: {
+            D1: girlAspectDetails.d1 || null,
+            D9: girlAspectDetails.d9 || null
+        }
+    };
+
+    // --------------------------------------------------
+    // 5. VENUS AND JUPITER KARAKA ANALYSIS
+    // --------------------------------------------------
+
+    const karakaSummary = {
+        boy: boyKarakaDetails,
+        girl: girlKarakaDetails,
+
+        coupleComparison: coupleKarakaComparison
+    };
+
+    // --------------------------------------------------
+    // 6. POSITIVE AND CAUTIONARY INDICATORS
+    // --------------------------------------------------
+
+    const positiveIndicators = [];
+    const cautionaryIndicators = [];
+    const pendingChecks = [];
+
+    if (ashtakootScore !== null) {
+        positiveIndicators.push({
+            area: 'Ashtakoot',
+            finding:
+                `अष्टकूट का प्राप्त गुण ${ashtakootScore}/36 है।`,
+            interpretation:
+                'अंकों को अन्य विवाह संकेतों के साथ मिलाकर समझना आवश्यक है।'
+        });
+    } else {
+        pendingChecks.push(
+            'अष्टकूट का कुल गुण उपलब्ध नहीं है।'
+        );
+    }
+
+    if (
+        boyManglikEvidence.rawDoshaEvidence.doshaFoundCount > 0 &&
+        girlManglikEvidence.rawDoshaEvidence.doshaFoundCount > 0
+    ) {
+        positiveIndicators.push({
+            area: 'Manglik comparison',
+            finding:
+                'दोनों कुंडलियों में मांगलिक संकेत पाए गए हैं।',
+            interpretation:
+                'दोनों की स्थिति में समानता का विस्तृत परीक्षण उपलब्ध है; केवल समान दोष होने से दोष-भंग सिद्ध नहीं होता।'
+        });
+    } else if (
+        boyManglikEvidence.rawDoshaEvidence.doshaFoundCount > 0 ||
+        girlManglikEvidence.rawDoshaEvidence.doshaFoundCount > 0
+    ) {
+        cautionaryIndicators.push({
+            area: 'Manglik comparison',
+            finding:
+                'दोनों की मांगलिक स्थिति में अंतर पाया गया है।',
+            interpretation:
+                'दोष-भंग, तीव्रता और अन्य विवाह संकेतों के साथ इसकी समीक्षा आवश्यक है।'
+        });
+    } else {
+        positiveIndicators.push({
+            area: 'Manglik comparison',
+            finding:
+                'निर्धारित तीनों संदर्भों में दोनों की कुंडलियों में मूल मांगलिक दोष नहीं मिला।',
+            interpretation:
+                'यह केवल मांगलिक परीक्षण का परिणाम है, संपूर्ण विवाह निष्कर्ष नहीं।'
+        });
+    }
+
+    if (
+        boyManglikEvidence.cancellationEvidence
+            .potentialMitigationCount > 0 ||
+        girlManglikEvidence.cancellationEvidence
+            .potentialMitigationCount > 0
+    ) {
+        pendingChecks.push(
+            'दोष-भंग के संभावित संकेतों का परंपरा और प्रमाण के अनुसार सत्यापन आवश्यक है।'
+        );
+    }
+
+    // --------------------------------------------------
+    // 7. MARRIAGE HOUSE, ASPECTS AND KARAKA REVIEW
+    // --------------------------------------------------
+
+    pendingChecks.push(
+        'दोनों के D1 और D9 सप्तम भाव, सप्तमेश, भावेश की स्थिति और भाव के स्वामित्व का संयुक्त मूल्यांकन आवश्यक है।'
+    );
+
+    pendingChecks.push(
+        'सप्तम भाव और सप्तमेश पर शुभ तथा पाप ग्रहों की दृष्टियों का प्रभाव जाँचना आवश्यक है।'
+    );
+
+    pendingChecks.push(
+        'शुक्र और गुरु की राशि, भाव, बल, युति, दृष्टि तथा नवांश स्थिति को साथ में समझना आवश्यक है।'
+    );
+
+    pendingChecks.push(
+        'अंतिम विवाह निर्णय से पहले दशा और गोचर का समय-आधारित परीक्षण भी आवश्यक है।'
+    );
+
+    // --------------------------------------------------
+    // 8. OVERALL CONCLUSION
+    // --------------------------------------------------
+
+    const overallAssessment = {
+        status: 'PRELIMINARY_REQUIRES_ASTROLOGICAL_REVIEW',
+
+        hindi:
+            'विवाह संबंधी सभी प्रमुख ज्योतिषीय संकेत एकत्र किए गए हैं। अंतिम अनुकूलता का निर्णय करने से पहले सप्तम भाव, सप्तमेश, शुक्र, गुरु, नवांश और दशा का संयुक्त अर्थगत परीक्षण आवश्यक है।',
+
+        positiveIndicators,
+        cautionaryIndicators,
+        pendingChecks
+    };
+
+    // --------------------------------------------------
+    // FINAL RESPONSE
+    // --------------------------------------------------
+
+    return {
+        method:
+            'Integrated North Indian Marriage Compatibility Analysis',
+
+        analysisCompleted: {
+            ashtakoot: true,
+            manglik: true,
+            manglikComparison: true,
+            manglikEvidence: true,
+            seventhHouseData: true,
+            marriageAspects: true,
+            marriageKarakas: true,
+            navamshaData: true
+        },
+
+        ashtakoot: ashtakootSummary,
+
+        manglik: manglikSummary,
+
+        seventhHouseAnalysis:
+            marriageHouseSummary,
+
+        marriageAspectAnalysis:
+            aspectSummary,
+
+        marriageKarakaAnalysis:
+            karakaSummary,
+
+        overallAssessment,
+
+        finalConclusion:
+            overallAssessment.hindi,
+
+        importantNote:
+            'यह संयुक्त ज्योतिषीय विश्लेषण है, विवाह की निश्चित सफलता या असफलता की भविष्यवाणी नहीं। उपलब्ध गणनाओं और प्रमाणों के आधार पर ही अंतिम व्याख्या की जानी चाहिए।'
+    };
+}
+
 // ==========================================
 // RADHE ASTRO - ASHTAKOOTA TABLES & HELPERS
 // Reference: Muhurta Chintamani Vivaha Prakarana
@@ -1936,6 +3193,7 @@ app.get('/api/matchmaking', (req, res) => {
 // MATCHMAKING CALCULATION
 // ------------------------------------------
 
+
 app.post('/api/matchmaking', async (req, res) => {
     try {
         const { boy, girl } = req.body || {};
@@ -1964,127 +3222,213 @@ app.post('/api/matchmaking', async (req, res) => {
 
         const { eph, Body, Ayanamsa } = await getEphemera();
 
+        // 1. Moon details
         const boyMoon = getMoonDetails(
-            eph,
-            Body,
-            Ayanamsa,
-            boyUTC
+            eph, Body, Ayanamsa, boyUTC
         );
 
         const girlMoon = getMoonDetails(
-            eph,
-            Body,
-            Ayanamsa,
-            girlUTC
+            eph, Body, Ayanamsa, girlUTC
         );
 
-const boyManglik = getManglikDetails(
-    eph,
-    Body,
-    Ayanamsa,
-    boyUTC,
-    boyData.latitude,
-    boyData.longitude,
-    boyMoon
-);
+        // 2. Raw Manglik details
+        const boyManglik = getManglikDetails(
+            eph, Body, Ayanamsa,
+            boyUTC,
+            boyData.latitude,
+            boyData.longitude,
+            boyMoon
+        );
 
-const girlManglik = getManglikDetails(
-    eph,
-    Body,
-    Ayanamsa,
-    girlUTC,
-    girlData.latitude,
-    girlData.longitude,
-    girlMoon
-);
-   const boyChart = getFullChartDetails(
-    eph,
-    Body,
-    Ayanamsa,
-    boyUTC,
-    boyData.latitude,
-    boyData.longitude
-);
+        const girlManglik = getManglikDetails(
+            eph, Body, Ayanamsa,
+            girlUTC,
+            girlData.latitude,
+            girlData.longitude,
+            girlMoon
+        );
 
-const girlChart = getFullChartDetails(
-    eph,
-    Body,
-    Ayanamsa,
-    girlUTC,
-    girlData.latitude,
-    girlData.longitude
-);     
-const boyMarriage = getMarriageHouseDetails(boyChart);
+        // 3. Full planetary charts
+        const boyChart = getFullChartDetails(
+            eph, Body, Ayanamsa,
+            boyUTC,
+            boyData.latitude,
+            boyData.longitude
+        );
 
-const girlMarriage = getMarriageHouseDetails(girlChart);
+        const girlChart = getFullChartDetails(
+            eph, Body, Ayanamsa,
+            girlUTC,
+            girlData.latitude,
+            girlData.longitude
+        );
+
+        // 4. Marriage house details
+        const boyMarriage = getMarriageHouseDetails(boyChart);
+        const girlMarriage = getMarriageHouseDetails(girlChart);
+
+        // 5. Marriage aspects
         const boyMarriageAspects =
-    getMarriageAspectDetails(boyChart, boyMarriage);
+            getMarriageAspectDetails(boyChart, boyMarriage);
 
-const girlMarriageAspects =
-    getMarriageAspectDetails(girlChart, girlMarriage);
-      const boyMarriageKaraka =
-    getMarriageKarakaDetails(boyChart, boyMarriage);
+        const girlMarriageAspects =
+            getMarriageAspectDetails(girlChart, girlMarriage);
 
-const girlMarriageKaraka =
-    getMarriageKarakaDetails(girlChart, girlMarriage);  
+        // 6. Marriage karaka details
+        const boyMarriageKaraka =
+            getMarriageKarakaDetails(boyChart, boyMarriage);
 
-const boyPanchadhaMaitri =
-    getPanchadhaMaitriDetails(boyChart);
+        const girlMarriageKaraka =
+            getMarriageKarakaDetails(girlChart, girlMarriage);
 
-const girlPanchadhaMaitri =
-    getPanchadhaMaitriDetails(girlChart);
+        // 7. Panchadha Maitri
+        const boyPanchadhaMaitri =
+            getPanchadhaMaitriDetails(boyChart);
 
-    const coupleKarakaComparison =
-    getCoupleKarakaComparison(boyChart, girlChart);
-        
-return res.status(200).json({
-    success: true,
+        const girlPanchadhaMaitri =
+            getPanchadhaMaitriDetails(girlChart);
 
-    service: 'Radhe Astro Kundali Matchmaking',
+        // 8. Couple karaka comparison
+        const coupleKarakaComparison =
+            getCoupleKarakaComparison(boyChart, girlChart);
 
-    engine: 'Ephemera 0.4.1',
+        // 9. Ashtakoot calculation
+        const ashtakoot =
+            calculateAshtakoota(boyMoon, girlMoon);
 
-    calculation: 'Lahiri Sidereal - Moon, Ascendant and Planetary Positions',
+        // 10. Traditional Manglik dosha cancellation analysis
+        const boyManglikCancellation =
+            getManglikDoshaCancellation(boyManglik, boyChart);
 
-    ayanamsha: 'Lahiri',
+        const girlManglikCancellation =
+            getManglikDoshaCancellation(girlManglik, girlChart);
 
-    boy: {
-        name: boyData.name,
-        birthPlace: boyData.pob,
-        birthUTC: boyUTC.toISOString(),
-        timezoneName: boyData.timezoneName,
-        latitude: boyData.latitude,
-        longitude: boyData.longitude,
-        moon: boyMoon,
-manglik: boyManglik,
-chart: boyChart,
-marriage: boyMarriage,
-marriageAspects: boyMarriageAspects,
-marriageKaraka: boyMarriageKaraka,
-panchadhaMaitri: boyPanchadhaMaitri
-    },
+        // 11. Manglik severity analysis
+        const boyManglikSeverity =
+            getManglikSeverity(
+                boyManglik,
+                boyChart,
+                boyManglikCancellation
+            );
 
-    girl: {
-        name: girlData.name,
-        birthPlace: girlData.pob,
-        birthUTC: girlUTC.toISOString(),
-        timezoneName: girlData.timezoneName,
-        latitude: girlData.latitude,
-        longitude: girlData.longitude,
-        moon: girlMoon,
-manglik: girlManglik,
-chart: girlChart,
-marriage: girlMarriage,
-marriageAspects: girlMarriageAspects,
-marriageKaraka: girlMarriageKaraka,
-panchadhaMaitri: girlPanchadhaMaitri
-    },
-    
-coupleKarakaComparison: coupleKarakaComparison,
-    
-    ashtakoot: calculateAshtakoota(boyMoon, girlMoon)
-});
-        
+        const girlManglikSeverity =
+            getManglikSeverity(
+                girlManglik,
+                girlChart,
+                girlManglikCancellation
+            );
+
+        // 12. Couple Manglik comparison
+        const coupleManglikComparison =
+            compareCoupleManglik(
+                boyManglik,
+                girlManglik,
+                boyManglikSeverity,
+                girlManglikSeverity,
+                boyManglikCancellation,
+                girlManglikCancellation,
+                boyChart,
+                girlChart
+            );
+
+        // 13. Manglik evidence for both persons
+        const boyManglikEvidence =
+            getManglikEvidence(
+                boyManglik,
+                boyChart,
+                boyManglikCancellation,
+                boyManglikSeverity,
+                boyData.name
+            );
+
+        const girlManglikEvidence =
+            getManglikEvidence(
+                girlManglik,
+                girlChart,
+                girlManglikCancellation,
+                girlManglikSeverity,
+                girlData.name
+            );
+
+        // 14. Combined preliminary marriage conclusion
+        const finalMarriageConclusion =
+            getFinalMarriageConclusion(
+                ashtakoot,
+                boyManglikEvidence,
+                girlManglikEvidence,
+                coupleManglikComparison,
+                boyMarriage,
+                girlMarriage,
+                boyMarriageAspects,
+                girlMarriageAspects,
+                boyMarriageKaraka,
+                girlMarriageKaraka,
+                coupleKarakaComparison
+            );
+
+        // 15. API response
+        return res.status(200).json({
+            success: true,
+
+            service: 'Radhe Astro Kundali Matchmaking',
+
+            engine: 'Ephemera 0.4.1',
+
+            calculation:
+                'Lahiri Sidereal - Moon, Ascendant and Planetary Positions',
+
+            ayanamsha: 'Lahiri',
+
+            boy: {
+                name: boyData.name,
+                birthPlace: boyData.pob,
+                birthUTC: boyUTC.toISOString(),
+                timezoneName: boyData.timezoneName,
+                latitude: boyData.latitude,
+                longitude: boyData.longitude,
+
+                moon: boyMoon,
+                manglik: boyManglik,
+                chart: boyChart,
+                marriage: boyMarriage,
+                marriageAspects: boyMarriageAspects,
+                marriageKaraka: boyMarriageKaraka,
+                panchadhaMaitri: boyPanchadhaMaitri,
+
+                manglikCancellation: boyManglikCancellation,
+                manglikSeverity: boyManglikSeverity,
+                manglikEvidence: boyManglikEvidence
+            },
+
+            girl: {
+                name: girlData.name,
+                birthPlace: girlData.pob,
+                birthUTC: girlUTC.toISOString(),
+                timezoneName: girlData.timezoneName,
+                latitude: girlData.latitude,
+                longitude: girlData.longitude,
+
+                moon: girlMoon,
+                manglik: girlManglik,
+                chart: girlChart,
+                marriage: girlMarriage,
+                marriageAspects: girlMarriageAspects,
+                marriageKaraka: girlMarriageKaraka,
+                panchadhaMaitri: girlPanchadhaMaitri,
+
+                manglikCancellation: girlManglikCancellation,
+                manglikSeverity: girlManglikSeverity,
+                manglikEvidence: girlManglikEvidence
+            },
+
+            coupleKarakaComparison: coupleKarakaComparison,
+
+            coupleManglikComparison: coupleManglikComparison,
+
+            ashtakoot: ashtakoot,
+
+            finalMarriageConclusion: finalMarriageConclusion
+        });
 
     } catch (error) {
         console.error(
