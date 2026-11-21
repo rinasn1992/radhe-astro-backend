@@ -266,6 +266,388 @@ function getMoonDetails(eph, Body, Ayanamsa, birthUTC) {
     };
 }
 
+// ==========================================
+// RADHE ASTRO - ASHTAKOOTA TABLES & HELPERS
+// Reference: Muhurta Chintamani Vivaha Prakarana
+// Bride = girl, Groom = boy
+// ==========================================
+
+const GRAHA_LORDS = [
+    'मंगल', 'शुक्र', 'बुध', 'चंद्र',
+    'सूर्य', 'बुध', 'शुक्र', 'मंगल',
+    'गुरु', 'शनि', 'शनि', 'गुरु'
+];
+
+// Varna rank: 1 = Brahmin, 2 = Kshatriya,
+// 3 = Vaishya, 4 = Shudra
+const VARNA_BY_RASHI = [
+    2, 3, 4, 1, 2, 3,
+    4, 1, 2, 3, 4, 1
+];
+
+// Muhurta Chintamani Vashya classes
+const VASHYA_BY_RASHI = [
+    'Chatushpada', // Mesha
+    'Chatushpada', // Vrishabha
+    'Dvipada',     // Mithuna
+    'Jalachara',   // Karka
+    'Chatushpada', // Simha
+    'Dvipada',     // Kanya
+    'Dvipada',     // Tula
+    'Keeta',       // Vrischika
+    'Chatushpada', // Dhanu
+    'Jalachara',   // Makara
+    'Jalachara',   // Kumbha
+    'Jalachara'    // Meena
+];
+
+// Vashya score matrix: bride row, groom column
+const VASHYA_CLASSES = [
+    'Dvipada',
+    'Chatushpada',
+    'Jalachara',
+    'Keeta'
+];
+
+const VASHYA_MATRIX = [
+    [2, 0.5, 0.5, 1],
+    [0.5, 2, 2, 2],
+    [0.5, 2, 2, 2],
+    [1, 2, 2, 2]
+];
+
+// 27 Nakshatra Yoni assignments
+const YONI_BY_NAKSHATRA = [
+    'Horse', 'Elephant', 'Sheep',
+    'Serpent', 'Serpent', 'Dog',
+    'Cat', 'Sheep', 'Cat',
+    'Rat', 'Rat', 'Cow',
+    'Buffalo', 'Tiger', 'Buffalo',
+    'Tiger', 'Deer', 'Deer',
+    'Dog', 'Monkey', 'Mongoose',
+    'Monkey', 'Lion', 'Lion',
+    'Lion', 'Cow', 'Elephant'
+];
+
+const YONI_CLASSES = [
+    'Horse', 'Elephant', 'Sheep', 'Serpent',
+    'Dog', 'Cat', 'Rat', 'Cow', 'Buffalo',
+    'Tiger', 'Deer', 'Monkey', 'Mongoose', 'Lion'
+];
+
+// Yoni matrix: bride row, groom column
+// Values: 4 same, 3 friendly, 2 neutral,
+// 1 enemy, 0 great enemy.
+const YONI_MATRIX = [
+    [4,2,3,2,2,3,3,3,0,1,3,2,2,1],
+    [2,4,3,2,2,3,3,3,3,2,2,2,2,0],
+    [3,3,4,3,2,3,1,3,3,1,3,0,3,1],
+    [2,2,3,4,2,2,1,1,2,2,2,2,0,2],
+    [2,2,2,2,4,1,1,2,2,1,0,2,2,1],
+    [2,2,3,2,1,4,0,2,2,1,2,2,2,2],
+    [2,2,2,1,1,0,4,2,2,2,2,2,2,1],
+    [3,2,3,1,2,2,2,4,3,0,3,2,3,1],
+    [0,3,3,2,2,2,2,3,4,1,2,2,2,3],
+    [1,2,1,2,1,1,2,0,1,4,2,1,2,2],
+    [3,2,3,2,0,2,2,3,2,1,4,2,2,2],
+    [2,3,0,2,2,2,2,2,2,1,2,4,2,3],
+    [2,2,3,0,2,2,2,3,2,2,2,2,4,2],
+    [1,0,1,2,1,2,1,1,3,2,2,2,2,4]
+];
+
+// Graha Maitri: natural friendship matrix
+// Bride's lord row, groom's lord column
+const GRAHA_CLASSES = [
+    'सूर्य', 'चंद्र', 'मंगल', 'बुध',
+    'गुरु', 'शुक्र', 'शनि'
+];
+
+const GRAHA_MAITRI_MATRIX = [
+    [5, 5, 5, 4, 5, 0, 0],
+    [5, 5, 4, 1, 4, 0.5, 0.5],
+    [5, 4, 5, 0.5, 5, 3, 0.5],
+    [4, 1, 0.5, 5, 0.5, 5, 4],
+    [5, 4, 5, 0.5, 5, 0.5, 3],
+    [0, 0.5, 3, 5, 0.5, 5, 5],
+    [0, 0.5, 0.5, 4, 3, 5, 5]
+];
+
+// Nakshatra Gana: 0-based nakshatra index
+const GANA_BY_NAKSHATRA = [
+    'Deva', 'Manushya', 'Rakshasa',
+    'Rakshasa', 'Deva', 'Manushya',
+    'Deva', 'Deva', 'Rakshasa',
+    'Rakshasa', 'Manushya', 'Manushya',
+    'Deva', 'Rakshasa', 'Deva',
+    'Rakshasa', 'Deva', 'Rakshasa',
+    'Rakshasa', 'Manushya', 'Manushya',
+    'Deva', 'Rakshasa', 'Rakshasa',
+    'Manushya', 'Manushya', 'Deva'
+];
+
+// Gana score matrix: bride row, groom column
+const GANA_CLASSES = ['Deva', 'Manushya', 'Rakshasa'];
+
+const GANA_MATRIX = [
+    [6, 5, 1],
+    [6, 6, 0],
+    [0, 0, 6]
+];
+
+// Nakshatra Nadi assignments
+const NADI_BY_NAKSHATRA = [
+    'Adi', 'Madhya', 'Antya',
+    'Antya', 'Madhya', 'Adi',
+    'Adi', 'Madhya', 'Antya',
+    'Antya', 'Madhya', 'Adi',
+    'Adi', 'Madhya', 'Antya',
+    'Antya', 'Madhya', 'Adi',
+    'Adi', 'Madhya', 'Antya',
+    'Antya', 'Madhya', 'Adi',
+    'Adi', 'Madhya', 'Antya'
+];
+
+// ------------------------------------------
+// ASHTAKOOTA COMMON HELPERS
+// ------------------------------------------
+
+function getMatrixScore(matrix, classes, brideValue, groomValue) {
+    const brideIndex = classes.indexOf(brideValue);
+    const groomIndex = classes.indexOf(groomValue);
+
+    if (brideIndex < 0 || groomIndex < 0) {
+        throw new Error('Invalid Ashtakoota table value.');
+    }
+
+    return matrix[brideIndex][groomIndex];
+}
+
+function getNakshatraTara(fromIndex, toIndex) {
+    // Both indexes are 0-based
+    const count = ((toIndex - fromIndex + 27) % 27) + 1;
+    const remainder = count % 9 || 9;
+
+    const taraNames = [
+        'Janma', 'Sampat', 'Vipat',
+        'Kshema', 'Pratyak', 'Sadhana',
+        'Naidhana', 'Mitra', 'Parama Mitra'
+    ];
+
+    return {
+        count,
+        remainder,
+        name: taraNames[remainder - 1],
+        favorable: ![3, 5, 7].includes(remainder)
+    };
+}
+
+// ------------------------------------------
+// INDIVIDUAL KOOTA CALCULATIONS
+// ------------------------------------------
+
+function calculateVarna(boyMoon, girlMoon) {
+    const boyVarna = VARNA_BY_RASHI[boyMoon.rashiIndex];
+    const girlVarna = VARNA_BY_RASHI[girlMoon.rashiIndex];
+
+    return {
+        name: 'वर्ण',
+        boyVarna,
+        girlVarna,
+        score: boyVarna <= girlVarna ? 1 : 0,
+        maximum: 1
+    };
+}
+
+function calculateVashya(boyMoon, girlMoon) {
+    const boyClass = VASHYA_BY_RASHI[boyMoon.rashiIndex];
+    const girlClass = VASHYA_BY_RASHI[girlMoon.rashiIndex];
+
+    return {
+        name: 'वश्य',
+        boyClass,
+        girlClass,
+        score: getMatrixScore(
+            VASHYA_MATRIX,
+            VASHYA_CLASSES,
+            girlClass,
+            boyClass
+        ),
+        maximum: 2
+    };
+}
+
+function calculateTara(boyMoon, girlMoon) {
+    // Girl -> Boy and Boy -> Girl
+    const girlToBoy = getNakshatraTara(
+        girlMoon.nakshatraIndex - 1,
+        boyMoon.nakshatraIndex - 1
+    );
+
+    const boyToGirl = getNakshatraTara(
+        boyMoon.nakshatraIndex - 1,
+        girlMoon.nakshatraIndex - 1
+    );
+
+    const score =
+        girlToBoy.favorable && boyToGirl.favorable ? 3 :
+        girlToBoy.favorable || boyToGirl.favorable ? 1.5 : 0;
+
+    return {
+        name: 'तारा',
+        girlToBoy,
+        boyToGirl,
+        score,
+        maximum: 3
+    };
+}
+
+function calculateYoni(boyMoon, girlMoon) {
+    const boyYoni = YONI_BY_NAKSHATRA[
+        boyMoon.nakshatraIndex - 1
+    ];
+
+    const girlYoni = YONI_BY_NAKSHATRA[
+        girlMoon.nakshatraIndex - 1
+    ];
+
+    return {
+        name: 'योनि',
+        boyYoni,
+        girlYoni,
+        score: getMatrixScore(
+            YONI_MATRIX,
+            YONI_CLASSES,
+            girlYoni,
+            boyYoni
+        ),
+        maximum: 4
+    };
+}
+
+function calculateGrahaMaitri(boyMoon, girlMoon) {
+    const boyLord = GRAHA_LORDS[boyMoon.rashiIndex];
+    const girlLord = GRAHA_LORDS[girlMoon.rashiIndex];
+
+    return {
+        name: 'ग्रह मैत्री',
+        boyLord,
+        girlLord,
+        score: getMatrixScore(
+            GRAHA_MAITRI_MATRIX,
+            GRAHA_CLASSES,
+            girlLord,
+            boyLord
+        ),
+        maximum: 5
+    };
+}
+
+function calculateGana(boyMoon, girlMoon) {
+    const boyGana = GANA_BY_NAKSHATRA[
+        boyMoon.nakshatraIndex - 1
+    ];
+
+    const girlGana = GANA_BY_NAKSHATRA[
+        girlMoon.nakshatraIndex - 1
+    ];
+
+    return {
+        name: 'गण',
+        boyGana,
+        girlGana,
+        score: getMatrixScore(
+            GANA_MATRIX,
+            GANA_CLASSES,
+            girlGana,
+            boyGana
+        ),
+        maximum: 6
+    };
+}
+
+function calculateBhakoot(boyMoon, girlMoon) {
+    const boyRashi = boyMoon.rashiIndex;
+    const girlRashi = girlMoon.rashiIndex;
+
+    const girlToBoy = ((boyRashi - girlRashi + 12) % 12) + 1;
+    const boyToGirl = ((girlRashi - boyRashi + 12) % 12) + 1;
+
+    const pair = [girlToBoy, boyToGirl];
+
+    const dosha = (
+        pair.includes(2) && pair.includes(12)
+    ) || (
+        pair.includes(5) && pair.includes(9)
+    ) || (
+        pair.includes(6) && pair.includes(8)
+    );
+
+    return {
+        name: 'भकूट',
+        girlToBoy,
+        boyToGirl,
+        dosha,
+        score: dosha ? 0 : 7,
+        maximum: 7
+    };
+}
+
+function calculateNadi(boyMoon, girlMoon) {
+    const boyNadi = NADI_BY_NAKSHATRA[
+        boyMoon.nakshatraIndex - 1
+    ];
+
+    const girlNadi = NADI_BY_NAKSHATRA[
+        girlMoon.nakshatraIndex - 1
+    ];
+
+    const dosha = boyNadi === girlNadi;
+
+    return {
+        name: 'नाड़ी',
+        boyNadi,
+        girlNadi,
+        dosha,
+        score: dosha ? 0 : 8,
+        maximum: 8
+    };
+}
+
+// ------------------------------------------
+// COMPLETE ASHTAKOOTA CALCULATION
+// ------------------------------------------
+
+function calculateAshtakoota(boyMoon, girlMoon) {
+    const kootas = [
+        calculateVarna(boyMoon, girlMoon),
+        calculateVashya(boyMoon, girlMoon),
+        calculateTara(boyMoon, girlMoon),
+        calculateYoni(boyMoon, girlMoon),
+        calculateGrahaMaitri(boyMoon, girlMoon),
+        calculateGana(boyMoon, girlMoon),
+        calculateBhakoot(boyMoon, girlMoon),
+        calculateNadi(boyMoon, girlMoon)
+    ];
+
+    const totalScore = Number(
+        kootas.reduce((sum, item) => sum + item.score, 0).toFixed(2)
+    );
+
+    return {
+        status: 'BASE_CALCULATED_REQUIRES_VALIDATION',
+        method: 'North Indian Ashtakoota - Muhurta Chintamani',
+        totalScore,
+        totalMaximumPoints: 36,
+        kootas,
+        doshas: {
+            bhakoot: kootas[6].dosha,
+            nadi: kootas[7].dosha
+        },
+        note:
+            'Base Ashtakoota scores calculated. Dosha cancellation and final traditional review are not yet applied.'
+    };
+}
+
 // ------------------------------------------
 // BIRTH DETAILS VALIDATION
 // ------------------------------------------
