@@ -804,12 +804,9 @@ app.post('/api/matchmaking', async (req, res) => {
                 moon: girlMoon
             },
 
-            ashtakoot: {
-                status: 'PENDING_VALIDATION',
-                totalMaximumPoints: 36,
-                message:
-                    'Moon positions calculated. Ashtakoot scoring tables and compatibility rules must be validated before issuing a guna score.'
-            }
+            
+ashtakoot: calculateAshtakoota(boyMoon, girlMoon)
+            
         });
 
     } catch (error) {
