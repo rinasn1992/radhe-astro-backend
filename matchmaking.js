@@ -784,6 +784,104 @@ function getMarriageHouseDetails(chart) {
     };
 }
 
+function getMarriageAspectDetails(chart, marriageDetails) {
+
+    const aspectRules = {
+        sun: [7],
+        moon: [7],
+        mars: [4, 7, 8],
+        mercury: [7],
+        jupiter: [5, 7, 9],
+        venus: [7],
+        saturn: [3, 7, 10]
+    };
+
+    const planetKeyByName = {
+        'सूर्य': 'sun',
+        'चंद्र': 'moon',
+        'मंगल': 'mars',
+        'बुध': 'mercury',
+        'गुरु': 'jupiter',
+        'शुक्र': 'venus',
+        'शनि': 'saturn'
+    };
+
+    function getAspectingPlanets(
+        targetHouse,
+        houseField,
+        excludeKey = null
+    ) {
+        return Object.entries(chart.planets)
+            .filter(([key]) =>
+                Object.prototype.hasOwnProperty.call(
+                    aspectRules,
+                    key
+                ) && key !== excludeKey
+            )
+            .flatMap(([key, planet]) => {
+
+                const sourceHouse = planet[houseField];
+
+                if (
+                    !Number.isInteger(sourceHouse) ||
+                    sourceHouse < 1 ||
+                    sourceHouse > 12
+                ) {
+                    return [];
+                }
+
+                const distance =
+                    ((targetHouse - sourceHouse + 12) % 12) + 1;
+
+                if (!aspectRules[key].includes(distance)) {
+                    return [];
+                }
+
+                return [{
+                    key,
+                    name: planet.name,
+                    sourceHouse,
+                    aspect: distance
+                }];
+            });
+    }
+
+    const d1LordKey =
+        planetKeyByName[marriageDetails.d1.seventhHouse.lord];
+
+    const d9LordKey =
+        planetKeyByName[marriageDetails.d9.seventhHouse.lord];
+
+    return {
+        d1: {
+            seventhHouseAspects:
+                getAspectingPlanets(7, 'house'),
+
+            seventhLordHouseAspects:
+                getAspectingPlanets(
+                    marriageDetails.d1.seventhLordPosition.house,
+                    'house',
+                    d1LordKey
+                )
+        },
+
+        d9: {
+            seventhHouseAspects:
+                getAspectingPlanets(7, 'navamshaHouse'),
+
+            seventhLordHouseAspects:
+                getAspectingPlanets(
+                    marriageDetails.d9.seventhLordPosition.house,
+                    'navamshaHouse',
+                    d9LordKey
+                )
+        },
+
+        method:
+            'Parashari Graha Drishti - Classical Seven Planets; Rahu-Ketu aspects excluded'
+    };
+}
+
 // ==========================================
 // RADHE ASTRO - ASHTAKOOTA TABLES & HELPERS
 // Reference: Muhurta Chintamani Vivaha Prakarana
@@ -1554,6 +1652,12 @@ const girlChart = getFullChartDetails(
 const boyMarriage = getMarriageHouseDetails(boyChart);
 
 const girlMarriage = getMarriageHouseDetails(girlChart);
+        const boyMarriageAspects =
+    getMarriageAspectDetails(boyChart, boyMarriage);
+
+const girlMarriageAspects =
+    getMarriageAspectDetails(girlChart, girlMarriage);
+        
 return res.status(200).json({
     success: true,
 
@@ -1575,7 +1679,8 @@ return res.status(200).json({
         moon: boyMoon,
 manglik: boyManglik,
 chart: boyChart,
-marriage: boyMarriage
+marriage: boyMarriage,
+marriageAspects: boyMarriageAspects
     },
 
     girl: {
@@ -1588,7 +1693,8 @@ marriage: boyMarriage
         moon: girlMoon,
 manglik: girlManglik,
 chart: girlChart,
-marriage: girlMarriage
+marriage: girlMarriage,
+marriageAspects: girlMarriageAspects
     },
 
     ashtakoot: calculateAshtakoota(boyMoon, girlMoon)
