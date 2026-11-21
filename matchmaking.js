@@ -684,6 +684,106 @@ function getFullChartDetails(
         planets
     };
 }
+
+// ==========================================
+// RADHE ASTRO - MARRIAGE HOUSE ANALYSIS
+// D1 & D9 - Seventh House and Seventh Lord
+// ==========================================
+
+function getMarriageHouseDetails(chart) {
+
+    const planetKeyByName = {
+        'सूर्य': 'sun',
+        'चंद्र': 'moon',
+        'मंगल': 'mars',
+        'बुध': 'mercury',
+        'गुरु': 'jupiter',
+        'शुक्र': 'venus',
+        'शनि': 'saturn'
+    };
+
+    // D1 - Seventh House
+    const seventhRashiIndex =
+        (chart.ascendant.rashiIndex + 6) % 12;
+
+    const seventhLord =
+        GRAHA_LORDS[seventhRashiIndex];
+
+    const seventhLordKey =
+        planetKeyByName[seventhLord];
+
+    const seventhLordPlanet =
+        chart.planets[seventhLordKey];
+
+    const seventhHouseOccupants =
+        Object.entries(chart.planets)
+            .filter(([key, planet]) =>
+                planet.house === 7
+            )
+            .map(([key, planet]) => ({
+                key,
+                name: planet.name,
+                rashi: planet.rashi,
+                degree: planet.rashiDegree
+            }));
+
+    // D9 - Seventh House
+    const navamshaSeventhRashiIndex =
+        (chart.ascendant.navamshaRashiIndex + 6) % 12;
+
+    const navamshaSeventhLord =
+        GRAHA_LORDS[navamshaSeventhRashiIndex];
+
+    const navamshaSeventhLordKey =
+        planetKeyByName[navamshaSeventhLord];
+
+    const navamshaSeventhLordPlanet =
+        chart.planets[navamshaSeventhLordKey];
+
+    const navamshaSeventhHouseOccupants =
+        Object.entries(chart.planets)
+            .filter(([key, planet]) =>
+                planet.navamshaHouse === 7
+            )
+            .map(([key, planet]) => ({
+                key,
+                name: planet.name,
+                navamshaRashi: planet.navamshaRashi
+            }));
+
+    return {
+        d1: {
+            seventhHouse: {
+                rashi: RASHIS[seventhRashiIndex],
+                rashiIndex: seventhRashiIndex,
+                lord: seventhLord,
+                occupants: seventhHouseOccupants
+            },
+
+            seventhLordPosition: {
+                rashi: seventhLordPlanet.rashi,
+                house: seventhLordPlanet.house,
+                degree: seventhLordPlanet.rashiDegree,
+                retrograde: seventhLordPlanet.retrograde
+            }
+        },
+
+        d9: {
+            seventhHouse: {
+                rashi: RASHIS[navamshaSeventhRashiIndex],
+                rashiIndex: navamshaSeventhRashiIndex,
+                lord: navamshaSeventhLord,
+                occupants: navamshaSeventhHouseOccupants
+            },
+
+            seventhLordPosition: {
+                rashi: navamshaSeventhLordPlanet.navamshaRashi,
+                house: navamshaSeventhLordPlanet.navamshaHouse
+            }
+        }
+    };
+}
+
 // ==========================================
 // RADHE ASTRO - ASHTAKOOTA TABLES & HELPERS
 // Reference: Muhurta Chintamani Vivaha Prakarana
@@ -1451,7 +1551,9 @@ const girlChart = getFullChartDetails(
     girlData.latitude,
     girlData.longitude
 );     
-        
+const boyMarriage = getMarriageHouseDetails(boyChart);
+
+const girlMarriage = getMarriageHouseDetails(girlChart);
 return res.status(200).json({
     success: true,
 
@@ -1472,7 +1574,8 @@ return res.status(200).json({
         longitude: boyData.longitude,
         moon: boyMoon,
 manglik: boyManglik,
-chart: boyChart
+chart: boyChart,
+marriage: boyMarriage
     },
 
     girl: {
@@ -1484,7 +1587,8 @@ chart: boyChart
         longitude: girlData.longitude,
         moon: girlMoon,
 manglik: girlManglik,
-chart: girlChart
+chart: girlChart,
+marriage: girlMarriage
     },
 
     ashtakoot: calculateAshtakoota(boyMoon, girlMoon)
