@@ -205,6 +205,7 @@ function getJulianDate(eph, date) {
 // MOON SIDEREAL POSITION - LAHIRI
 // ------------------------------------------
 
+
 function getMoonDetails(eph, Body, Ayanamsa, birthUTC) {
     const jd = getJulianDate(eph, birthUTC);
 
@@ -226,6 +227,8 @@ function getMoonDetails(eph, Body, Ayanamsa, birthUTC) {
 
     const rashiIndex = Math.floor(longitude / 30);
 
+    const rashiDegree = longitude - rashiIndex * 30;
+
     const nakshatraIndex = Math.floor(
         longitude / NAKSHATRA_SIZE
     );
@@ -236,6 +239,28 @@ function getMoonDetails(eph, Body, Ayanamsa, birthUTC) {
     const pada = Math.floor(
         (longitude - nakshatraStart) / PADA_SIZE
     ) + 1;
+
+    // D-9 Navamsha calculation
+    const navamshaPart = Math.min(
+        8,
+        Math.floor(rashiDegree / (30 / 9))
+    );
+
+    let navamshaStart;
+
+    if (rashiIndex % 3 === 0) {
+        // Movable signs
+        navamshaStart = rashiIndex;
+    } else if (rashiIndex % 3 === 1) {
+        // Fixed signs
+        navamshaStart = (rashiIndex + 8) % 12;
+    } else {
+        // Dual signs
+        navamshaStart = (rashiIndex + 4) % 12;
+    }
+
+    const navamshaRashiIndex =
+        (navamshaStart + navamshaPart) % 12;
 
     return {
         tropicalLongitude: Number(
@@ -255,14 +280,20 @@ function getMoonDetails(eph, Body, Ayanamsa, birthUTC) {
         rashiIndex,
 
         rashiDegree: Number(
-            (longitude - rashiIndex * 30).toFixed(6)
+            rashiDegree.toFixed(6)
         ),
 
         nakshatra: NAKSHATRAS[nakshatraIndex],
 
         nakshatraIndex: nakshatraIndex + 1,
 
-        pada
+        pada,
+
+        navamshaRashi: RASHIS[navamshaRashiIndex],
+
+        navamshaRashiIndex,
+
+        navamshaRashiLord: GRAHA_LORDS[navamshaRashiIndex]
     };
 }
 
