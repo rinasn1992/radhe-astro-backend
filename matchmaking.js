@@ -2257,9 +2257,9 @@ function getFinalMarriageConclusion(
     // --------------------------------------------------
 
     const ashtakootScore =
-        Number.isFinite(ashtakootDetails.score)
-            ? ashtakootDetails.score
-            : null;
+    Number.isFinite(ashtakootDetails.totalScore)
+        ? ashtakootDetails.totalScore
+        : null;
 
     const ashtakootSummary = {
         score: ashtakootScore,
